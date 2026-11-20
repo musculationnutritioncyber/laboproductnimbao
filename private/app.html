@@ -94,9 +94,18 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0;text-wra
 .t-name{font-weight:700;font-size:15px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .t-offer{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .t-last{font-size:12px;color:var(--muted);margin-top:2px}
-.roas{text-align:right;min-width:74px}
+.roas{text-align:right;min-width:120px}
 .roas b{font-family:var(--f-num);font-size:20px;font-weight:700;display:block;line-height:1.1}
 .roas small{font-family:var(--f-num);font-size:11.5px;color:var(--muted)}
+.roas .rl{font-size:10.5px;color:var(--muted);font-family:var(--f-num);display:block;line-height:1.25}
+.roas .rnc{font-family:var(--f-num);font-size:13px;font-weight:700;display:block;margin-top:1px}
+img.ph{cursor:zoom-in}
+.lb{position:fixed;inset:0;background:rgba(15,18,30,.82);display:grid;place-items:center;z-index:999;cursor:zoom-out;padding:24px}
+.lb img{max-width:min(92vw,900px);max-height:88vh;border-radius:16px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.plinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.plinks a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);color:inherit;text-decoration:none;font-weight:600;font-size:13.5px}
+.plinks a:hover{background:var(--surface)}
+.pill.res-sup{background:var(--soft);color:var(--muted)}
 .c-good{color:var(--good)} .c-warn{color:var(--warn)} .c-bad{color:var(--bad)} .c-none{color:var(--muted)}
 .mini{height:5px;border-radius:99px;background:var(--line);margin-top:6px;position:relative;overflow:visible}
 .mini i{position:absolute;inset:0 auto 0 0;border-radius:99px}
@@ -500,6 +509,8 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
         <label>Lancé le<input id="p-launched" type="date"></label>
         <label>ROAS 10 %<input id="p-r10" type="number" step="0.01" inputmode="decimal"></label>
         <label>ROAS 20 %<input id="p-r20" type="number" step="0.01" inputmode="decimal"></label>
+        <label class="full">Fiche produit (fin du lien nimbao.com/products/…)<input id="p-url" placeholder="cloud-hood"></label>
+        <label class="full">Campagnes Facebook (numéros, séparés par des virgules)<input id="p-fb" placeholder="52543308853517"></label>
         <label class="full">Note<textarea id="p-note" placeholder="Goulot, prochaine idée à tester…"></textarea></label>
       </div>
     </details>
@@ -514,6 +525,9 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
 
 <script>
 /* Base de données du Labo sur Vercel : même interface que l'ancienne (collection/doc/set/update/add/onSnapshot), relue toutes les 30 s */
+document.addEventListener("click",function(e){var im=e.target&&e.target.closest&&e.target.closest("img.ph");if(!im)return;e.preventDefault();e.stopPropagation();
+  var o=document.createElement("div");o.className="lb";o.innerHTML='<img alt="">';o.firstChild.src=String(im.src).replace(/([?&])width=\d+/,"$1width=1200");o.onclick=function(){o.remove()};document.body.appendChild(o)},true);
+document.addEventListener("keydown",function(e){if(e.key==="Escape"){var o=document.querySelector(".lb");if(o)o.remove()}});
 function LaboDB(){
   var subs={};
   function call(body){return fetch("/api/db",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){if(r.status===401){location.href="/";throw new Error("auth")}if(!r.ok)throw new Error("http "+r.status);return r.json()}).then(function(j){refresh(body.c);return j})}
@@ -553,7 +567,13 @@ function LaboDB(){
   function toast(m){var t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true},2200)}
   function setStatus(m,err){var s=$("status");s.textContent=m||"";s.hidden=!m;s.className="status"+(err?" err":"")}
   function prod(id){return S.products.find(function(p){return p.id===id})||{id:id,name:id,owner:""}}
-  function rc(p){if(p.roas==null||p.roas==="")return "none";if(p.be&&p.roas<p.be)return "bad";if(p.r10&&p.roas<p.r10)return "warn";return "good"}
+  function rcv(v,p){if(v==null||v==="")return "none";if(p.be&&v<p.be)return "bad";if(p.r10&&v<p.r10)return "warn";return "good"}
+  function rc(p){return rcv(p.roas_g!=null&&p.roas_g!==""?p.roas_g:p.roas,p)}
+  /* un changement est « remplacé » si un autre changement a touché le même produit avant la fin de ses 3 jours : on ne peut plus le juger seul */
+  function supBy(c){if(c.result)return null;return S.changes.filter(function(d){return d.id!==c.id&&d.product===c.product&&String(d.at)>String(c.at)&&String(d.at).slice(0,10)<String(c.checkOn||"")}).sort(function(a,b){return String(a.at).localeCompare(String(b.at))})[0]||null}
+  var ACT="4350442121854633",BM="861151924737694";
+  function fbLink(id){return "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act="+ACT+"&business_id="+BM+"&filter_set=SEARCH_BY_CAMPAIGN_GROUP_ID-STRING%1EEQUAL%1E%22"+id+"%22"}
+  function bigImg(src){return String(src||"").replace(/([?&])width=\d+/,"$1width=1200")}
   function lastChange(id){return S.changes.filter(function(c){return c.product===id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))})[0]}
   function photo(p,cls){
     var src=p.img||(IMGS.indexOf(p.id)>=0?"img/"+p.id+".webp":"");
@@ -564,7 +584,7 @@ function LaboDB(){
   }
   function who(a){return '<span class="who '+esc(a)+'" title="'+esc(a)+'">'+esc(String(a||"?").charAt(0))+'</span>'}
   function vchip(v){return '<span class="vchip" style="background:'+(VCOL[v]||"var(--v-autre)")+'">'+esc(v)+'</span>'}
-  function resPill(c){return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
+  function resPill(c){var sb=supBy(c);if(sb)return '<span class="pill res-sup">remplacé par le changement du '+esc(frDate(sb.at))+'</span>';return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
 
   /* vues */
   function view(){var h=(location.hash||"").replace("#","");return ["aujourdhui","pools","historique","calcul","analyse"].indexOf(h)>=0?h:"aujourdhui"}
@@ -574,18 +594,18 @@ function LaboDB(){
 
   function tile(p){
     var c=rc(p),lc=lastChange(p.id),ds=lc?daysSince(lc.at):null;
-    var max=Math.max(3,(p.r20||0)+.3,(p.roas||0)+.2),w=p.roas!=null&&p.roas!==""?Math.min(100,p.roas/max*100):0;
+    var rv=p.roas_g!=null&&p.roas_g!==""?p.roas_g:p.roas,max=Math.max(3,(p.r20||0)+.3,(rv||0)+.2),w=rv!=null&&rv!==""?Math.min(100,rv/max*100):0;
     var col=c==="good"?"var(--good)":c==="warn"?"var(--warn)":c==="bad"?"var(--bad)":"var(--muted)";
     return '<button type="button" class="tile'+(p.status==="Scale"?" gold":"")+'" data-p="'+esc(p.id)+'">'+photo(p)+
       '<span style="min-width:0"><span class="t-name">'+esc(p.name)+' <span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span></span>'+
       '<span class="t-offer" style="display:block">'+esc(p.offer||"Offre à compléter")+'</span>'+
       '<span class="t-last" style="display:block">'+(lc?vchip(lc.variable)+' '+(ds===0?"aujourd'hui":ds===1?"hier":"il y a "+ds+" j"):"Aucun changement noté")+'</span></span>'+
-      '<span class="roas"><b class="c-'+c+'">'+num(p.roas)+'</b><small>BE '+num(p.be)+'</small><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
+      '<span class="roas"><span class="rl">global</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
   }
 
   function render(){
     var today=todayStr();
-    var due=S.changes.filter(function(c){return !c.result&&c.checkOn&&c.checkOn<=today}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var due=S.changes.filter(function(c){return !c.result&&c.checkOn&&c.checkOn<=today&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
     S.dueCount=due.length;
     var nd=$("n-due");nd.textContent=due.length;nd.hidden=!due.length;
     var live=S.products.filter(function(p){return p.status!=="Coupé"});
@@ -646,8 +666,8 @@ function LaboDB(){
     var be=p.be||d.be||null,r10=p.r10||d.r10||null,start=d.first_day||p.launched||"";
     var it={p:p,d:d,g:"",phase:"",act:"",facts:"",w:Math.max(d.s3||0,d.spend_tot&&!d.s3?0:0),judge:null};
     var f3=function(){return "3 derniers jours : "+usd0(d.s3)+" · "+pl(d.n3,"vente")+" NC · ROAS NC "+num(d.roas3)+(d.roas3_g!=null?" · global "+num(d.roas3_g):"")+(d.roas3_meta!=null?" · Meta "+num(d.roas3_meta):"")+" (BE "+num(be)+(r10?" · 10 % "+num(r10):"")+")"};
-    var due=S.changes.filter(function(c){return c.product===p.id&&!c.result&&c.checkOn&&c.checkOn<=t}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
-    var pend=S.changes.filter(function(c){return c.product===p.id&&!c.result&&c.checkOn&&c.checkOn>t}).sort(function(a,b){return String(b.checkOn).localeCompare(String(a.checkOn))});
+    var due=S.changes.filter(function(c){return c.product===p.id&&!c.result&&c.checkOn&&c.checkOn<=t&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var pend=S.changes.filter(function(c){return c.product===p.id&&!c.result&&c.checkOn&&c.checkOn>t&&!supBy(c)}).sort(function(a,b){return String(b.checkOn).localeCompare(String(a.checkOn))});
     if(p.status==="À lancer"&&!d.spend_tot){it.g="faire";it.phase="À lancer";it.act=be?"Lancer les pubs (CBO, BE "+num(be)+")":"Calculer le BE (onglet Calcul BE) puis lancer les pubs";it.facts=p.offer||"Offre à compléter";return it}
     var full=start?diffD(fin,start)+1:null;
     if(full!=null&&full<3&&p.status!=="Scale"){it.g="attendre";it.phase=full<=0?"Lancé aujourd'hui":"Test J"+full+"/3";it.act="On ne touche pas. Verdict le "+frDate(addDays(start,3));
@@ -811,7 +831,9 @@ function LaboDB(){
     $("p-name-wrap").hidden=!!p;
     if(p){var c=rc(p);
       $("p-hero").innerHTML='<div class="hero '+esc(p.owner)+'">'+photo(p,"lg")+'<div style="min-width:0"><h4>'+esc(p.name)+'</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0"><span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span>'+(p.launched?'<span class="pill res-none">lancé le '+esc(frDate(p.launched))+'</span>':"")+'</div><div class="t-offer" style="white-space:normal">'+esc(p.offer||"Offre à compléter")+'</div></div></div>'+
-        '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS relevé</span><b class="c-'+c+'">'+num(p.roas)+'</b></div><div class="k"><span>Seuil BE</span><b>'+num(p.be)+'</b></div><div class="k"><span>ROAS 10 %</span><b>'+num(p.r10)+'</b></div><div class="k"><span>ROAS 20 %</span><b>'+num(p.r20)+'</b></div></div>'+
+        '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS global TW</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b></div><div class="k"><span>ROAS New Customer</span><b class="c-'+rcv(p.roas,p)+'">'+num(p.roas)+'</b></div><div class="k"><span>ROAS Meta</span><b class="c-'+rcv(p.roas_meta,p)+'">'+num(p.roas_meta)+'</b></div></div>'+
+        '<div class="kpi4" style="margin-top:8px"><div class="k"><span>Seuil BE</span><b>'+num(p.be)+'</b></div><div class="k"><span>ROAS 10 %</span><b>'+num(p.r10)+'</b></div><div class="k"><span>ROAS 20 %</span><b>'+num(p.r20)+'</b></div></div>'+
+        '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+'</div>'+
         (p.roasWindow?'<p class="sub" style="margin-top:6px">'+esc(p.roasWindow)+(p.spend!=null&&p.spend!==""?' · dépense '+num(p.spend,0)+' $':"")+'</p>':"")+
         (p.note?'<p style="margin:8px 0 0;font-size:14px;background:var(--soft);border-radius:12px;padding:10px 12px">'+esc(p.note)+'</p>':"");
       var ch=S.changes.filter(function(x){return x.product===p.id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
@@ -821,15 +843,16 @@ function LaboDB(){
     $("p-tl-wrap").hidden=!p;$("p-add-change").hidden=!p;
     $("p-name").value=p?p.name:"";$("p-owner").value=p?p.owner:"Bastien";$("p-status").value=p?p.status:"Test";
     $("p-offer").value=p?p.offer||"":"";$("p-be").value=p&&p.be!=null?p.be:"";$("p-r10").value=p&&p.r10!=null?p.r10:"";$("p-r20").value=p&&p.r20!=null?p.r20:"";
-    $("p-launched").value=p?p.launched||"":todayStr();$("p-note").value=p?p.note||"":"";
+    $("p-launched").value=p?p.launched||"":todayStr();$("p-note").value=p?p.note||"":"";$("p-url").value=p?p.url||"":"";$("p-fb").value=p?(p.fb||[]).map(function(f){return f.id}).join(", "):"";
     openSheet("sheet-product");
   }
   $("btn-add-product").onclick=function(){openProduct(null)};
   $("p-add-change").onclick=function(){openChange(S.current)};
+  function mergeFb(v){var old={};((prod(S.current)||{}).fb||[]).forEach(function(f){old[f.id]=f.name});return String(v||"").split(/[^0-9]+/).filter(Boolean).map(function(id){return {id:id,name:old[id]||"Campagne "+id}})}
   function slugify(s){return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||("produit-"+Date.now())}
   function nn(v){return v===""||v==null||isNaN(Number(v))?null:Number(v)}
   $("product-form").addEventListener("submit",function(e){e.preventDefault();if(!S.db)return;
-    var f={owner:$("p-owner").value,status:$("p-status").value,offer:$("p-offer").value.trim(),be:nn($("p-be").value),r10:nn($("p-r10").value),r20:nn($("p-r20").value),launched:$("p-launched").value,note:$("p-note").value.trim(),updatedAt:new Date().toISOString()};
+    var f={owner:$("p-owner").value,status:$("p-status").value,offer:$("p-offer").value.trim(),be:nn($("p-be").value),r10:nn($("p-r10").value),r20:nn($("p-r20").value),launched:$("p-launched").value,url:$("p-url").value.trim().replace(/^.*\/products\//,"").replace(/[?#].*$/,""),fb:mergeFb($("p-fb").value),note:$("p-note").value.trim(),updatedAt:new Date().toISOString()};
     closeSheets();
     if(S.current)write(S.db.collection("products").doc(S.current).update(f),"Produit mis à jour");
     else{var n=$("p-name").value.trim();if(!n)return;f.name=n;f.roas=null;f.spend=null;f.roasWindow="";write(S.db.collection("products").doc(slugify(n)).set(f),"Produit ajouté")}});
