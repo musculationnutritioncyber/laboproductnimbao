@@ -105,6 +105,11 @@ img.ph{cursor:zoom-in}
 .plinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .plinks a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);color:inherit;text-decoration:none;font-weight:600;font-size:13.5px}
 .plinks a:hover{background:var(--surface)}
+.be-alert{display:block;margin-top:3px;color:var(--bad);font-size:11.5px;font-weight:700;line-height:1.3;white-space:normal}
+.bechk{margin-top:10px;border-radius:12px;padding:10px 12px;background:var(--soft);border:1px solid var(--line);font-size:13px;display:grid;gap:3px}
+.bechk.bad{background:var(--bad-soft);border-color:var(--bad-line)}
+.bechk b.t{font-size:13.5px} .bechk .al{color:var(--bad);font-weight:700}
+.bechk small{color:var(--muted)}
 .suivi{margin-top:6px;display:grid;gap:3px;font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}.suivi b{color:var(--ink);font-family:var(--f-num)}
 .who.Claude{background:#8a63d2}
 .freewrap{display:grid;gap:6px}.ownbtns{display:flex;gap:8px;padding:0 4px 4px}.ownbtns .btn{flex:1;color:#fff;border:0;font-weight:700}.ownbtns .btn.b{background:var(--bastien)}.ownbtns .btn.n{background:var(--nico)}
@@ -624,7 +629,7 @@ function LaboDB(){
       '<span style="min-width:0"><span class="t-name">'+esc(p.name)+' <span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span></span>'+
       '<span class="t-offer" style="display:block">'+esc(p.offer||"Offre à compléter")+'</span>'+
       '<span class="t-last" style="display:block">'+(lc?vchip(lc.variable)+' '+(ds===0?"aujourd'hui":ds===1?"hier":"il y a "+ds+" j"):"Aucun changement noté")+'</span></span>'+
-      '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small><span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
+      '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small>'+(p.be_check&&p.be_check.alerte?'<span class="be-alert">⚠ '+esc(p.be_check.alerte)+'</span>':'')+'<span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
   }
 
   function freeTile(p){return '<div class="freewrap">'+tile(p)+(S.canWrite?'<div class="ownbtns"><button type="button" class="btn b" data-give="Bastien" data-id="'+esc(p.id)+'">Bastien</button><button type="button" class="btn n" data-give="Nico" data-id="'+esc(p.id)+'">Nicolas</button></div>':"")+'</div>'}
@@ -862,6 +867,14 @@ function LaboDB(){
     var d={product:$("f-product").value,variable:$("f-variable").value,author:a,what:$("f-what").value.trim(),at:$("f-at").value,checkOn:$("f-check").value,result:"",resultNote:"",createdAt:new Date().toISOString()};
     if(!d.product||!d.what)return;closeSheets();write(S.db.collection("changes").add(d),"Changement enregistré")});
 
+  function kaloLinks(p){var k=p.be_check||{},L=[];if(k.kalodata)L.push(k.kalodata);(k.kalodata_plus||[]).forEach(function(u){L.push(u)});
+    return L.map(function(u,i){return '<a href="'+esc(u)+'" target="_blank" rel="noopener">📈 Kalodata'+(L.length>1?" "+(i+1):"")+'</a>'}).join("")}
+  function beCheckBox(p){var k=p.be_check;if(!k)return "";
+    return '<div class="bechk'+(k.alerte?" bad":"")+'"><b class="t">Contrôle du BE'+(k.date?" · "+esc(frDate(k.date)):"")+'</b>'+
+      (k.be!=null?'<span>Recalculé : <b>BE '+num(k.be)+' · 10 % '+num(k.r10)+' · 20 % '+num(k.r20)+'</b></span>':"")+
+      (k.offre?'<span>Offre : '+esc(k.offre)+'</span>':"")+(k.couts?'<span>Coûts : '+esc(k.couts)+'</span>':"")+
+      (k.src?'<small>Source : '+esc(k.src)+'. Sans remboursements.</small>':"")+
+      (k.alerte?'<span class="al">⚠ '+esc(k.alerte)+'</span>':'<span style="color:var(--good);font-weight:700">✓ Le BE du nom de la CBO est juste.</span>')+'</div>'}
   function openProduct(id){
     var p=id?S.products.find(function(x){return x.id===id}):null;S.current=p?p.id:null;
     $("p-title").textContent=p?(p.owner?"Pool "+p.owner:"Produit"):"Nouveau produit";
@@ -870,7 +883,7 @@ function LaboDB(){
       $("p-hero").innerHTML='<div class="hero '+esc(p.owner)+'">'+photo(p,"lg")+'<div style="min-width:0"><h4>'+esc(p.name)+'</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0"><span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span>'+(p.launched?'<span class="pill res-none">lancé le '+esc(frDate(p.launched))+'</span>':"")+'</div><div class="t-offer" style="white-space:normal">'+esc(p.offer||"Offre à compléter")+'</div></div></div>'+
         '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS global TW</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b></div><div class="k"><span>ROAS New Customer</span><b class="c-'+rcv(p.roas,p)+'">'+num(p.roas)+'</b></div><div class="k"><span>ROAS Meta</span><b class="c-'+rcv(p.roas_meta,p)+'">'+num(p.roas_meta)+'</b></div></div>'+
         '<div class="kpi4" style="margin-top:8px"><div class="k"><span>Seuil BE</span><b>'+num(p.be)+'</b></div><div class="k"><span>ROAS 10 %</span><b>'+num(p.r10)+'</b></div><div class="k"><span>ROAS 20 %</span><b>'+num(p.r20)+'</b></div></div>'+
-        '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+'</div>'+
+        '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+kaloLinks(p)+'</div>'+beCheckBox(p)+
         (p.roasWindow?'<p class="sub" style="margin-top:6px">'+esc(p.roasWindow)+(p.spend!=null&&p.spend!==""?' · dépense '+num(p.spend,0)+' $':"")+'</p>':"")+
         (p.note?'<p style="margin:8px 0 0;font-size:14px;background:var(--soft);border-radius:12px;padding:10px 12px">'+esc(p.note)+'</p>':"");
       var ch=S.changes.filter(function(x){return x.product===p.id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
