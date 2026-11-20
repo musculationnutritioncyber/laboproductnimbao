@@ -47,7 +47,7 @@ function safeEq(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-export const COLLECTIONS = ["products", "changes", "jours", "lectures"];
+export const COLLECTIONS = ["products", "changes", "jours", "lectures", "gestes"];
 
 export async function readJSON(name, fallback) {
   const r = await get(`labo/${name}.json`, { access: "private", useCache: false });
