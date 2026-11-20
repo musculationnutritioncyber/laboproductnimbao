@@ -603,7 +603,7 @@ function LaboDB(){
       '<span style="min-width:0"><span class="t-name">'+esc(p.name)+' <span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span></span>'+
       '<span class="t-offer" style="display:block">'+esc(p.offer||"Offre à compléter")+'</span>'+
       '<span class="t-last" style="display:block">'+(lc?vchip(lc.variable)+' '+(ds===0?"aujourd'hui":ds===1?"hier":"il y a "+ds+" j"):"Aucun changement noté")+'</span></span>'+
-      '<span class="roas"><span class="rl">global</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
+      '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small><span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
   }
 
   function render(){
