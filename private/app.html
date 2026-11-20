@@ -285,6 +285,11 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
 .ag-top3 li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;font-size:15px}
 .ag-top3 li .k{display:grid;place-items:center;width:30px;height:30px;border-radius:99px;background:var(--ink);color:var(--surface);font-family:var(--f-num);font-weight:700}
 .ag-top3 li small{display:block;color:var(--muted);font-size:13px}
+.ag-rule{border:1px solid var(--line);border-left:6px solid var(--nico);border-radius:16px;padding:12px 16px;background:var(--surface);font-size:14.5px}
+.ag-rule summary{cursor:pointer;font-family:var(--f-display);font-weight:800;font-size:16px}
+.ag-rule ol{margin:8px 0 6px;padding-left:20px;display:grid;gap:4px}
+.ag-rule p{margin:6px 0}
+.ag-rule small{color:var(--muted)}
 .ag-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .ag-sum div{border-radius:14px;padding:10px 12px;background:var(--surface);border:1px solid var(--line)}
 .ag-sum b{display:block;font-family:var(--f-num);font-size:24px;line-height:1.1}
@@ -340,6 +345,15 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
       <div><h2 class="vt"><svg class="ic-lg"><use href="#ic-day"/></svg>Aujourd'hui</h2><p class="sub" id="ag-sub">L'ordre du jour produits, mis à jour chaque jour à 12 h 01 (Bangkok).</p></div>
       <div class="chips" id="ag-who"></div>
       <div class="ag-top3" id="ag-top3"></div>
+      <details class="ag-rule" open>
+        <summary>Règle du Labo : lancer des pubs ou changer une offre = 2 étapes</summary>
+        <ol>
+          <li><b>« + Changement »</b> : la variable (Pubs, Offre, Prix, Fiche), qui l'a fait, l'heure.</li>
+          <li><b>Clic sur le produit &gt; « Modifier la fiche du Labo »</b> : mettre le statut à jour (Lancement…) et la date dans « Lancé le ».</li>
+        </ol>
+        <p><b>Le piège :</b> les 3 gestes du jour lisent la <b>fiche</b> du produit (statut, date de lancement, seuil BE), pas l'historique. Si on remplit seulement l'historique, le geste reste affiché.</p>
+        <p><small>Cas du 20/11 : les pubs Cloud Cowboy tournaient (12 pubs dans Triple Whale), mais la fiche était encore « À lancer ». Bastien l'a corrigée. Idée en attente : des cases à cocher sur les 3 gestes, barrées avec qui et l'heure, remises à zéro à 12 h 01.</small></p>
+      </details>
       <div class="ag-sum" id="ag-sum"></div>
       <div id="ag-body" style="display:grid;gap:18px"></div>
     </section>
