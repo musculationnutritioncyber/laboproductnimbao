@@ -670,7 +670,7 @@ function LaboDB(){
     if(!S.jwho){S.jwho="Bastien";try{var k=localStorage.getItem("labo-jwho");if(k)S.jwho=k}catch(e){}}
     chips($("ag-who"),[["Bastien","var(--bastien)"],["Nico","var(--nico)"],["Tous"]],S.jwho,function(v){S.jwho=v;try{localStorage.setItem("labo-jwho",v)}catch(e){}render()});
     var JL=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"],td=new Date(todayStr()+"T12:00:00");
-    $("ag-sub").textContent=J?"Ordre du jour du "+JL[td.getDay()]+" "+frDate(todayStr())+". Chiffres Triple Whale jusqu'au "+frDate(fin)+" inclus (New York), le lancement compte depuis la 1re dépense. Mis à jour chaque jour à 12 h 01 (Bangkok).":"Les chiffres du jour arrivent chaque jour à 12 h 20 (Bangkok). En attendant, statuts et changements du Labo.";
+    $("ag-sub").textContent=J?"Ordre du jour du "+JL[td.getDay()]+" "+frDate(todayStr())+". Chiffres Triple Whale jusqu'au "+frDate(fin)+" inclus (New York), le lancement compte depuis la 1re dépense. Mis à jour chaque jour à 12 h 01 (Bangkok).":"Les chiffres du jour arrivent chaque jour à 12 h 01 (Bangkok). En attendant, statuts et changements du Labo.";
     var mine=function(p){return S.jwho==="Tous"||p.owner===S.jwho};
     var items=S.products.filter(function(p){return p.owner&&mine(p)}).map(function(p){return jourItem(p,J)}).filter(Boolean);
     var by={};GROUPS.forEach(function(g){by[g[0]]=items.filter(function(i){return i.g===g[0]}).sort(function(a,b){return b.w-a.w})});
