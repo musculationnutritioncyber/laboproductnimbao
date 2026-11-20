@@ -223,6 +223,7 @@ table.tt{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
 .bec-row{display:flex;justify-content:space-between;font-size:14px}.bec-row b{font-family:var(--f-num);font-weight:700}
 .becard.neg{background:linear-gradient(135deg,#FF9A8B,#FF6A5E)}
 .pct{position:relative}.pct input{padding-right:28px;font-family:var(--f-num);font-weight:700;font-size:17px}.pct::after{content:"%";position:absolute;right:11px;bottom:10px;color:var(--muted);font-weight:700}
+.cur{display:flex;justify-content:flex-end}.cur span{border:1.5px solid var(--line);border-radius:10px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink);background:var(--surface)}
 .numin{font-family:var(--f-num);font-weight:700;font-size:17px}
 .howto{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
 .howto summary{cursor:pointer;font-weight:700;text-align:center;list-style:none}.howto summary::-webkit-details-marker{display:none}
@@ -371,15 +372,13 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
       <div class="calc2" style="margin-top:12px">
         <form class="panel form" id="calc-form" autocomplete="off">
           <label class="full">Produit<select id="c-apply-product" aria-label="Produit"></select></label>
-          <label class="money">Prix de vente / panier moyen<input id="c-price" type="number" step="0.01" inputmode="decimal" value="95.90"></label>
-          <label class="money">Port payé par la cliente<input id="c-ship-paid" type="number" step="0.01" inputmode="decimal" value="0"></label>
-          <label class="money">Achat produit (par unité)<input id="c-unit" type="number" step="0.01" inputmode="decimal" value="7.05"></label>
-          <label>Unités dans le colis<input id="c-units" type="number" step="1" min="1" inputmode="numeric" value="2" class="numin"></label>
-          <label class="money">Envoi du colis<input id="c-ship" type="number" step="0.01" inputmode="decimal" value="17.89"></label>
-          <label class="money">Sachet (par unité)<input id="c-bag" type="number" step="0.001" inputmode="decimal" value="0.049"></label>
+          <div class="full cur"><span>$ US Dollar</span></div>
+          <label class="money">Prix de vente / panier moyen<input id="c-price" type="number" step="0.01" inputmode="decimal" value="80"></label>
+          <label class="money">Achat produit<input id="c-unit" type="number" step="0.01" inputmode="decimal" value="4"></label>
+          <label class="money">Frais d'envoi<input id="c-ship" type="number" step="0.01" inputmode="decimal" value="6"></label>
+          <label class="money">Autres frais<input id="c-other" type="number" step="0.01" inputmode="decimal" value="0"></label>
           <label class="pct">Frais Shopify + banque<input id="c-fee-pct" type="number" step="0.1" inputmode="decimal" value="2.9"></label>
           <label class="money">Frais fixe par commande<input id="c-fee-fix" type="number" step="0.01" inputmode="decimal" value="0.30"></label>
-          <label class="money full">Autres frais par commande<input id="c-other" type="number" step="0.01" inputmode="decimal" value="0"></label>
         </form>
         <div class="becol">
           <div class="becard">
@@ -403,13 +402,12 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
           <details class="howto">
             <summary>Comment ça marche ?</summary>
             <div class="howto-b">
-              <p><b>Encaissé</b> = prix de vente + port payé par la cliente.</p>
-              <p><b>Coûts</b> = unités × (achat produit + sachet) + envoi du colis + frais Shopify et banque (% de l'encaissé + frais fixe) + autres frais.</p>
-              <p><b>Marge avant pub</b> = encaissé − coûts. C'est aussi le <b>CPA break-even</b> : le coût d'acquisition maximal pour une commande à 0 $ de bénéfice.</p>
-              <p><b>ROAS break-even</b> = encaissé ÷ marge avant pub.</p>
-              <p><b>ROAS pour garder X % de marge</b> = encaissé ÷ (marge avant pub − X % × encaissé).</p>
-              <p>Les remboursements ne sont pas comptés dans le calcul.</p>
-              <div class="legend" style="margin:10px 0 6px"><span>Encaissé <b class="num" id="o-rev">-</b></span><span>Coûts <b class="num" id="o-cost">-</b></span><span>Marge avant pub <b class="num" id="o-margin">-</b></span></div>
+              <p><b>Marge avant pub</b> = prix de vente − achat produit − frais d'envoi − frais Shopify et banque (% du prix de vente + frais fixe) − autres frais.</p>
+              <p>C'est aussi le <b>CPA break-even</b> : ce qu'une commande peut coûter en pub pour finir à 0 $ de bénéfice.</p>
+              <p><b>ROAS break-even</b> = prix de vente ÷ marge avant pub.</p>
+              <p><b>ROAS pour garder X % de marge</b> = prix de vente ÷ (marge avant pub − X % du prix de vente).</p>
+              <p>Tout est en dollars. Les remboursements ne sont pas comptés.</p>
+              <div class="legend" style="margin:10px 0 6px"><span>Prix de vente <b class="num" id="o-rev">-</b></span><span>Coûts <b class="num" id="o-cost">-</b></span><span>Marge avant pub <b class="num" id="o-margin">-</b></span></div>
               <div class="split" id="o-split"></div>
             </div>
           </details>
@@ -863,8 +861,8 @@ function LaboDB(){
   /* calcul */
   function calc(){
     var g=function(i){return +$(i).value||0};
-    var price=g("c-price"),paid=g("c-ship-paid"),units=Math.max(1,g("c-units")||1),unit=g("c-unit"),ship=g("c-ship"),bag=g("c-bag"),fp=g("c-fee-pct")/100,ff=g("c-fee-fix"),other=g("c-other");
-    var rev=price+paid,fees=rev*fp+ff,goods=units*(unit+bag),cost=goods+ship+fees+other,m=rev-cost;
+    var price=g("c-price"),unit=g("c-unit"),ship=g("c-ship"),other=g("c-other"),fp=g("c-fee-pct")/100,ff=g("c-fee-fix");
+    var rev=price,fees=price*fp+ff,goods=unit,cost=goods+ship+fees+other,m=rev-cost;
     function at(x){var d=m-x*rev;return d>0?rev/d:null}
     var be=at(0),r10=at(.1),r20=at(.2),r30=at(.3);
     $("o-be").textContent=num(be);$("o-r10").textContent=num(r10);$("o-r20").textContent=num(r20);$("o-r30").textContent=num(r30);
