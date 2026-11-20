@@ -105,6 +105,8 @@ img.ph{cursor:zoom-in}
 .plinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .plinks a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);color:inherit;text-decoration:none;font-weight:600;font-size:13.5px}
 .plinks a:hover{background:var(--surface)}
+.suivi{margin-top:6px;display:grid;gap:3px;font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}.suivi b{color:var(--ink);font-family:var(--f-num)}
+.who.Claude{background:#8a63d2}
 .pill.res-sup{background:var(--soft);color:var(--muted)}
 .c-good{color:var(--good)} .c-warn{color:var(--warn)} .c-bad{color:var(--bad)} .c-none{color:var(--muted)}
 .mini{height:5px;border-radius:99px;background:var(--line);margin-top:6px;position:relative;overflow:visible}
@@ -584,6 +586,7 @@ function LaboDB(){
   }
   function who(a){return '<span class="who '+esc(a)+'" title="'+esc(a)+'">'+esc(String(a||"?").charAt(0))+'</span>'}
   function vchip(v){return '<span class="vchip" style="background:'+(VCOL[v]||"var(--v-autre)")+'">'+esc(v)+'</span>'}
+  function suivi(c){var L=c.suivi||[];if(!L.length)return "";return '<div class="suivi">'+L.slice(-4).map(function(x){return '<div><b>'+esc(x.j||"")+'</b> '+esc(x.txt||"")+'</div>'}).join("")+'</div>'}
   function resPill(c){var sb=supBy(c);if(sb)return '<span class="pill res-sup">remplacé par le changement du '+esc(frDate(sb.at))+'</span>';return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
 
   /* vues */
@@ -615,7 +618,7 @@ function LaboDB(){
       '<div class="stat r"><b>'+under+'</b><span>en test sous<br>le seuil</span></div><div class="stat g"><b>'+good+'</b><span>au-dessus<br>du ROAS 10 %</span></div>';
     $("go-judge").onclick=function(){var j=$("judge-wrap");if(!j.hidden)j.scrollIntoView({behavior:"smooth",block:"start"})};
     $("judge-list").innerHTML=due.map(function(c){var p=prod(c.product);
-      return '<div class="jcard">'+photo(p,"sm")+'<div><div class="t-name">'+esc(p.name)+' '+who(c.author)+' '+vchip(c.variable)+' <span class="t-last">'+esc(frDate(c.at))+'</span></div><div class="what">'+esc(c.what)+'</div>'+
+      return '<div class="jcard">'+photo(p,"sm")+'<div><div class="t-name">'+esc(p.name)+' '+who(c.author)+' '+vchip(c.variable)+' <span class="t-last">'+esc(frDate(c.at))+'</span></div><div class="what">'+esc(c.what)+'</div>'+suivi(c)+
       (S.canWrite?'<div class="jbtns"><input id="jn-'+esc(c.id)+'" placeholder="Une phrase : le chiffre, le verdict" aria-label="Note"><button type="button" class="jb g" data-j="mieux" data-c="'+esc(c.id)+'">Mieux</button><button type="button" class="jb w" data-j="pareil" data-c="'+esc(c.id)+'">Pareil</button><button type="button" class="jb r" data-j="pire" data-c="'+esc(c.id)+'">Pire</button></div>':"")+'</div></div>'}).join("");
     $("judge-list").querySelectorAll("[data-j]").forEach(function(b){b.onclick=function(){judge(b.getAttribute("data-c"),b.getAttribute("data-j"))}});
 
@@ -641,7 +644,7 @@ function LaboDB(){
       .sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
     var html="",lastDay="";
     hs.forEach(function(c){var p=prod(c.product),d=String(c.at).slice(0,10);if(d!==lastDay){html+='<div class="day">'+esc(dayLabel(d))+'</div>';lastDay=d}
-      html+='<div class="hrow" style="border-left-color:'+(VCOL[c.variable]||"var(--v-autre)")+'">'+photo(p,"sm")+'<div style="min-width:0"><div class="h1"><b>'+esc(p.name)+'</b>'+vchip(c.variable)+resPill(c)+'<span class="time">'+who(c.author)+' '+esc(hour(c.at))+'</span></div><div class="txt">'+esc(c.what)+'</div>'+(c.resultNote?'<div class="rn">'+esc(c.resultNote)+'</div>':"")+'</div></div>'});
+      html+='<div class="hrow" style="border-left-color:'+(VCOL[c.variable]||"var(--v-autre)")+'">'+photo(p,"sm")+'<div style="min-width:0"><div class="h1"><b>'+esc(p.name)+'</b>'+vchip(c.variable)+resPill(c)+'<span class="time">'+who(c.author)+' '+esc(hour(c.at))+'</span></div><div class="txt">'+esc(c.what)+'</div>'+suivi(c)+(c.resultNote?'<div class="rn">'+esc(c.resultNote)+'</div>':"")+'</div></div>'});
     $("history").innerHTML=html||'<div class="empty">Aucun changement pour ce filtre.</div>';
 
     var opts=S.products.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name))}).map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+' ('+esc(p.owner)+')</option>'}).join("");
@@ -837,7 +840,7 @@ function LaboDB(){
         (p.roasWindow?'<p class="sub" style="margin-top:6px">'+esc(p.roasWindow)+(p.spend!=null&&p.spend!==""?' · dépense '+num(p.spend,0)+' $':"")+'</p>':"")+
         (p.note?'<p style="margin:8px 0 0;font-size:14px;background:var(--soft);border-radius:12px;padding:10px 12px">'+esc(p.note)+'</p>':"");
       var ch=S.changes.filter(function(x){return x.product===p.id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
-      $("p-tl").innerHTML=ch.length?ch.map(function(x){return '<div class="tl-i" style="--dot:'+(VCOL[x.variable]||"var(--v-autre)")+'"><div class="d">'+esc(dayLabel(x.at))+' '+esc(hour(x.at))+' '+vchip(x.variable)+' '+who(x.author)+'</div><div style="font-size:14px;margin:3px 0">'+esc(x.what)+'</div>'+resPill(x)+(x.resultNote?' <span class="sub">'+esc(x.resultNote)+'</span>':"")+'</div>'}).join(""):'<div class="tl-i"><div class="d">Aucun changement noté</div></div>';
+      $("p-tl").innerHTML=ch.length?ch.map(function(x){return '<div class="tl-i" style="--dot:'+(VCOL[x.variable]||"var(--v-autre)")+'"><div class="d">'+esc(dayLabel(x.at))+' '+esc(hour(x.at))+' '+vchip(x.variable)+' '+who(x.author)+'</div><div style="font-size:14px;margin:3px 0">'+esc(x.what)+'</div>'+resPill(x)+(x.resultNote?' <span class="sub">'+esc(x.resultNote)+'</span>':"")+suivi(x)+'</div>'}).join(""):'<div class="tl-i"><div class="d">Aucun changement noté</div></div>';
       $("p-edit").open=false;
     }else{$("p-hero").innerHTML="";$("p-edit").open=true}
     $("p-tl-wrap").hidden=!p;$("p-add-change").hidden=!p;
