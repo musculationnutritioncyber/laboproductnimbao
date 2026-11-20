@@ -107,6 +107,7 @@ img.ph{cursor:zoom-in}
 .plinks a:hover{background:var(--surface)}
 .suivi{margin-top:6px;display:grid;gap:3px;font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}.suivi b{color:var(--ink);font-family:var(--f-num)}
 .who.Claude{background:#8a63d2}
+.freewrap{display:grid;gap:6px}.ownbtns{display:flex;gap:8px;padding:0 4px 4px}.ownbtns .btn{flex:1;color:#fff;border:0;font-weight:700}.ownbtns .btn.b{background:var(--bastien)}.ownbtns .btn.n{background:var(--nico)}
 .pill.res-sup{background:var(--soft);color:var(--muted)}
 .c-good{color:var(--good)} .c-warn{color:var(--warn)} .c-bad{color:var(--bad)} .c-none{color:var(--muted)}
 .mini{height:5px;border-radius:99px;background:var(--line);margin-top:6px;position:relative;overflow:visible}
@@ -604,6 +605,7 @@ function LaboDB(){
       '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small><span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
   }
 
+  function freeTile(p){return '<div class="freewrap">'+tile(p)+(S.canWrite?'<div class="ownbtns"><button type="button" class="btn b" data-give="Bastien" data-id="'+esc(p.id)+'">Bastien</button><button type="button" class="btn n" data-give="Nico" data-id="'+esc(p.id)+'">Nicolas</button></div>':"")+'</div>'}
   function render(){
     var today=todayStr();
     var due=S.changes.filter(function(c){return !c.result&&c.checkOn&&c.checkOn<=today&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
@@ -624,10 +626,12 @@ function LaboDB(){
     $("pools").innerHTML=["Bastien","Nico"].concat(free?[""]:[]).map(function(o){
       var list=S.products.filter(function(p){return o?p.owner===o:(p.owner!=="Bastien"&&p.owner!=="Nico")}).sort(function(a,b){return ((ord[a.status]!=null?ord[a.status]:9)-(ord[b.status]!=null?ord[b.status]:9))||String(a.name).localeCompare(String(b.name))});
       var groups=[["En lancement",["Lancement","Test"]],["En itération",["Itération"]],["Scale",["Scale"],"gold"],["À lancer",["À lancer"]],["Coupés",["Coupé"]]];
-      var body=groups.map(function(g){var l=list.filter(function(p){return g[1].indexOf(p.status)>=0});return l.length?'<div class="group-label'+(g[2]?" "+g[2]:"")+'">'+(g[2]?"★ ":"")+g[0]+' · '+l.length+'</div>'+l.map(tile).join(""):""}).join("");
+      var body=groups.map(function(g){var l=list.filter(function(p){return g[1].indexOf(p.status)>=0});return l.length?'<div class="group-label'+(g[2]?" "+g[2]:"")+'">'+(g[2]?"★ ":"")+g[0]+' · '+l.length+'</div>'+l.map(o?tile:freeTile).join(""):""}).join("");
       var cls=o||"Libre",title=o?"Pool "+o:"À attribuer";
       return '<div class="pool '+cls+(o?"":" pools-extra")+'"><div class="pool-h"><span class="av">'+(o?o.charAt(0):"?")+'</span><div><h3>'+title+'</h3><small>'+list.length+' produit'+(list.length>1?"s":"")+(o?"":" sans responsable dans Product Sourcing")+'</small></div></div><div class="pool-body">'+(body||'<div class="empty">Aucun produit dans ce pool.</div>')+'</div></div>'}).join("");
     $("pools").querySelectorAll("[data-p]").forEach(function(b){b.onclick=function(){openProduct(b.getAttribute("data-p"))}});
+    $("pools").querySelectorAll("[data-give]").forEach(function(b){b.onclick=function(e){e.stopPropagation();if(!S.db)return;var id=b.getAttribute("data-id"),o=b.getAttribute("data-give");
+      write(S.db.collection("products").doc(id).update({owner:o,updatedAt:new Date().toISOString()}),prod(id).name+" → pool "+(o==="Nico"?"Nicolas":o))}});
 
     renderAnalyse();
     renderJour();
