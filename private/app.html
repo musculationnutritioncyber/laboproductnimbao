@@ -10,7 +10,7 @@
   --bastien:#4F6BFF; --bastien-soft:#E9EDFF; --nico:#F2603F; --nico-soft:#FFEDE7; --claude:#8B5CF6; --claude-soft:#F1EBFF;
   --good:#16A05A; --good-soft:#E2F6EA; --warn:#D98A00; --warn-soft:#FFF3D9; --bad:#C8463D; --bad-soft:#FDECEA; --bad-line:#F6C9C4;
   --gold:#B7860B; --gold-soft:#FFF4D2; --gold-line:#E9C45A; --neon:#16C76A;
-  --v-offre:#8B5CF6; --v-prix:#2F80ED; --v-port:#0EA5A4; --v-pubs:#E5487D; --v-fiche:#F59E0B; --v-avis:#C99400; --v-budget:#64748B; --v-autre:#94A3B8;
+  --v-offre:#8B5CF6; --v-prix:#2F80ED; --v-port:#0EA5A4; --v-pubs:#E5487D; --v-fiche:#F59E0B; --v-avis:#C99400; --v-budget:#64748B; --v-autre:#94A3B8; --v-seuil:#A1A1AA;
   --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --f-body:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-num:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -361,6 +361,7 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
           <li><b>« + Changement »</b> : la variable (Pubs, Offre, Prix, Fiche), qui l'a fait, l'heure.</li>
           <li><b>Clic sur le produit &gt; « Modifier la fiche du Labo »</b> : mettre le statut à jour (Lancement…) et la date dans « Lancé le ».</li>
         </ol>
+        <p><b>Variable « Seuil »</b> : un nouveau calcul du BE ou un renommage de CBO. C'est du suivi, pas un test : il ne ferme jamais le test d'offre en cours. Seuls l'offre, le prix, le port et le bundle Kaching ouvrent un test d'offre.</p>
         <p><b>Le piège :</b> les 3 gestes du jour lisent la <b>fiche</b> du produit (statut, date de lancement, seuil BE), pas l'historique. Si on remplit seulement l'historique, le geste reste affiché.</p>
         <p><small>Cas du 20/11 : les pubs Cloud Cowboy tournaient (12 pubs dans Triple Whale), mais la fiche était encore « À lancer ». Bastien l'a corrigée. Les 3 gestes ont maintenant des cases à cocher : on coche quand c'est fait, ça reste barré avec qui et l'heure, et ça repart à zéro à 12 h 01.</small></p>
       </details>
@@ -571,7 +572,7 @@ function LaboDB(){
 <script>
 (function(){
   "use strict";
-  var VARS=[["Offre","--v-offre"],["Prix","--v-prix"],["Port","--v-port"],["Pubs","--v-pubs"],["Fiche","--v-fiche"],["Avis","--v-avis"],["Budget","--v-budget"],["Autre","--v-autre"]];
+  var VARS=[["Offre","--v-offre"],["Prix","--v-prix"],["Port","--v-port"],["Pubs","--v-pubs"],["Fiche","--v-fiche"],["Avis","--v-avis"],["Budget","--v-budget"],["Autre","--v-autre"],["Seuil","--v-seuil"]];
   var VCOL={};VARS.forEach(function(v){VCOL[v[0]]="var("+v[1]+")"});
   var STATUSES=["Lancement","Itération","Scale","À lancer","Coupé"];
   var ord={"Lancement":0,"Test":0,"Itération":1,"Scale":2,"À lancer":3,"Coupé":4};
@@ -598,11 +599,13 @@ function LaboDB(){
   function rcv(v,p){if(v==null||v==="")return "none";if(p.be&&v<p.be)return "bad";if(p.r10&&v<p.r10)return "warn";return "good"}
   function rc(p){return rcv(p.roas_g!=null&&p.roas_g!==""?p.roas_g:p.roas,p)}
   /* un changement est « remplacé » si un autre changement a touché le même produit avant la fin de ses 3 jours : on ne peut plus le juger seul */
-  function supBy(c){if(c.result)return null;return S.changes.filter(function(d){return d.id!==c.id&&d.product===c.product&&String(d.at)>String(c.at)&&String(d.at).slice(0,10)<String(c.checkOn||"")}).sort(function(a,b){return String(a.at).localeCompare(String(b.at))})[0]||null}
+  /* « Seuil » (calcul du BE, renommage de CBO) = simple suivi : ce n'est pas un test, il ne ferme ni ne remplace jamais un test en cours (Nico, 20/11) */
+  function isTest(c){return c.variable!=="Seuil"&&!!c.checkOn}
+  function supBy(c){if(c.result||!isTest(c))return null;return S.changes.filter(function(d){return isTest(d)&&d.id!==c.id&&d.product===c.product&&String(d.at)>String(c.at)&&String(d.at).slice(0,10)<String(c.checkOn||"")}).sort(function(a,b){return String(a.at).localeCompare(String(b.at))})[0]||null}
   var ACT="4350442121854633",BM="861151924737694";
   function fbLink(id){return "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act="+ACT+"&business_id="+BM+"&filter_set=SEARCH_BY_CAMPAIGN_GROUP_ID-STRING%1EEQUAL%1E%22"+id+"%22"}
   function bigImg(src){return String(src||"").replace(/([?&])width=\d+/,"$1width=1200")}
-  function lastChange(id){return S.changes.filter(function(c){return c.product===id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))})[0]}
+  function lastChange(id){return S.changes.filter(function(c){return c.product===id&&c.variable!=="Seuil"}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))})[0]}
   function photo(p,cls){
     var src=p.img||(IMGS.indexOf(p.id)>=0?"img/"+p.id+".webp":"");
     var col=p.owner==="Nico"?"var(--nico)":p.owner==="Bastien"?"var(--bastien)":"var(--muted)";
@@ -613,7 +616,7 @@ function LaboDB(){
   function who(a){return '<span class="who '+esc(a)+'" title="'+esc(a)+'">'+esc(String(a||"?").charAt(0))+'</span>'}
   function vchip(v){return '<span class="vchip" style="background:'+(VCOL[v]||"var(--v-autre)")+'">'+esc(v)+'</span>'}
   function suivi(c){var L=c.suivi||[];if(!L.length)return "";return '<div class="suivi">'+L.slice(-4).map(function(x){return '<div><b>'+esc(x.j||"")+'</b> '+esc(x.txt||"")+'</div>'}).join("")+'</div>'}
-  function resPill(c){var sb=supBy(c);if(sb)return '<span class="pill res-sup">remplacé par le changement du '+esc(frDate(sb.at))+'</span>';return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
+  function resPill(c){if(!isTest(c))return '<span class="pill res-none">suivi (pas un test)</span>';var sb=supBy(c);if(sb)return '<span class="pill res-sup">remplacé par le changement du '+esc(frDate(sb.at))+'</span>';return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
 
   /* vues */
   function view(){var h=(location.hash||"").replace("#","");return ["aujourdhui","pools","historique","calcul","analyse"].indexOf(h)>=0?h:"aujourdhui"}
@@ -864,7 +867,7 @@ function LaboDB(){
   $("btn-add-change").onclick=function(){openChange(null)};
   $("f-at").addEventListener("change",function(){var v=$("f-at").value;if(v)$("f-check").value=addDays(v.slice(0,10),3)});
   $("change-form").addEventListener("submit",function(e){e.preventDefault();if(!S.db)return;var a=$("f-author").value;try{localStorage.setItem("labo-author",a)}catch(er){}
-    var d={product:$("f-product").value,variable:$("f-variable").value,author:a,what:$("f-what").value.trim(),at:$("f-at").value,checkOn:$("f-check").value,result:"",resultNote:"",createdAt:new Date().toISOString()};
+    var d={product:$("f-product").value,variable:$("f-variable").value,author:a,what:$("f-what").value.trim(),at:$("f-at").value,checkOn:$("f-variable").value==="Seuil"?"":$("f-check").value,result:"",resultNote:"",createdAt:new Date().toISOString()};
     if(!d.product||!d.what)return;closeSheets();write(S.db.collection("changes").add(d),"Changement enregistré")});
 
   function kaloLinks(p){var k=p.be_check||{},L=[];if(k.kalodata)L.push(k.kalodata);(k.kalodata_plus||[]).forEach(function(u){L.push(u)});
