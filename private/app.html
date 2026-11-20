@@ -285,6 +285,11 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
 .ag-top3 li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;font-size:15px}
 .ag-top3 li .k{display:grid;place-items:center;width:30px;height:30px;border-radius:99px;background:var(--ink);color:var(--surface);font-family:var(--f-num);font-weight:700}
 .ag-top3 li small{display:block;color:var(--muted);font-size:13px}
+.ag-top3 li.chk{grid-template-columns:30px minmax(0,1fr) auto}
+.ag-top3 .cb{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;padding-top:4px}
+.ag-top3 .cb input{width:20px;height:20px;accent-color:var(--good,#1f9d55);cursor:pointer;margin:0}
+.ag-top3 li.done>div{text-decoration:line-through;opacity:.55}
+.ag-top3 li.done .k{background:var(--good,#1f9d55)}
 .ag-rule{border:1px solid var(--line);border-left:6px solid var(--nico);border-radius:16px;padding:12px 16px;background:var(--surface);font-size:14.5px}
 .ag-rule summary{cursor:pointer;font-family:var(--f-display);font-weight:800;font-size:16px}
 .ag-rule ol{margin:8px 0 6px;padding-left:20px;display:grid;gap:4px}
@@ -352,7 +357,7 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
           <li><b>Clic sur le produit &gt; « Modifier la fiche du Labo »</b> : mettre le statut à jour (Lancement…) et la date dans « Lancé le ».</li>
         </ol>
         <p><b>Le piège :</b> les 3 gestes du jour lisent la <b>fiche</b> du produit (statut, date de lancement, seuil BE), pas l'historique. Si on remplit seulement l'historique, le geste reste affiché.</p>
-        <p><small>Cas du 20/11 : les pubs Cloud Cowboy tournaient (12 pubs dans Triple Whale), mais la fiche était encore « À lancer ». Bastien l'a corrigée. Idée en attente : des cases à cocher sur les 3 gestes, barrées avec qui et l'heure, remises à zéro à 12 h 01.</small></p>
+        <p><small>Cas du 20/11 : les pubs Cloud Cowboy tournaient (12 pubs dans Triple Whale), mais la fiche était encore « À lancer ». Bastien l'a corrigée. Les 3 gestes ont maintenant des cases à cocher : on coche quand c'est fait, ça reste barré avec qui et l'heure, et ça repart à zéro à 12 h 01.</small></p>
       </details>
       <div class="ag-sum" id="ag-sum"></div>
       <div id="ag-body" style="display:grid;gap:18px"></div>
@@ -567,11 +572,14 @@ function LaboDB(){
   var ord={"Lancement":0,"Test":0,"Itération":1,"Scale":2,"À lancer":3,"Coupé":4};
   var RES={mieux:"Mieux",pareil:"Pareil",pire:"Pire"};
   var IMGS=["mary-jane","compression-wide","sneakers","cloud-snow","cloud-slippers","cloud-walk","cloud-step-fleece","cloud-scarf","cloud-shawl","cloud-vest","cloud-loafers","cloud-poncho","cloud-puffs","cloud-cape","cloud-hug","cloud-snug","cloud-cardigan","cloud-dress","cloud-cuddle","cloud-hood","cloud-cowboy","cloud-cocoon"];
-  var S={products:[],changes:[],lectures:[],jours:[],jwho:null,db:null,canWrite:true,fwho:"Tous",fvar:"Tous",fres:"Tous",awho:"Tous",apick:"",current:null};
+  var S={products:[],changes:[],lectures:[],jours:[],gestes:{},jwho:null,db:null,canWrite:true,fwho:"Tous",fvar:"Tous",fres:"Tous",awho:"Tous",apick:"",current:null};
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function num(v,d){return (v==null||v===""||isNaN(v))?"-":Number(v).toFixed(d==null?2:d).replace(".",",")}
   function pad(n){return (n<10?"0":"")+n}
+  function gesteCycle(){return new Date(Date.now()+7*36e5-(12*60+1)*6e4).toISOString().slice(0,10)}
+  function gesteKey(it){return String((it.p&&it.p.id)||slugify(it.p&&it.p.name||"x"))}
+  function heureBkk(iso){var d=new Date(iso);if(isNaN(d))return "";var t=d.toLocaleTimeString("fr-FR",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit"});return t.replace(":"," h ")}
   function todayStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
   function addDays(s,n){var d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
   var JOURS=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."],MOIS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
@@ -726,7 +734,17 @@ function LaboDB(){
     // les 3 gestes du jour
     var top=by.decider.concat(by.faire).slice(0,3);
     if(top.length<3&&libres.length)top=top.concat(libres.slice(0,3-top.length).map(function(l){return {p:{name:short(l.name,45)},act:l.p.owner?"Lancer les pubs (fiche prête)":"Choisir qui le prend, toi ou Nico",facts:l.info,g:"faire"}}));
-    $("ag-top3").innerHTML='<h3>Les 3 gestes du jour'+(S.jwho!=="Tous"?" · "+esc(S.jwho):"")+'</h3>'+(top.length?'<ol>'+top.map(function(it,i){return '<li><span class="k">'+(i+1)+'</span><div><b>'+esc(it.p.name)+' :</b> '+esc(it.act)+(it.facts?'<small>'+esc(it.facts)+'</small>':"")+'</div></li>'}).join("")+'</ol>':'<p class="sub" style="margin:0">Rien à trancher aujourd\'hui : les produits sont en test ou tournent bien.</p>');
+    // cases à cocher : un cycle va de 12 h 01 à 12 h 00 (Bangkok), cochées gardées barrées avec qui et l'heure
+    var cyc=gesteCycle(),coches=S.gestes[cyc]||{},shown={};
+    top.forEach(function(it){it.gk=gesteKey(it);shown[it.gk]=1});
+    Object.keys(coches).forEach(function(k){var c=coches[k];if(!c||shown[k])return;if(S.jwho!=="Tous"&&c.owner&&c.owner!==S.jwho)return;top.push({gk:k,p:{name:c.name||k,owner:c.owner||""},act:c.act||"",g:"faire"})});
+    var nDone=top.filter(function(it){return coches[it.gk]}).length;
+    $("ag-top3").innerHTML='<h3>Les 3 gestes du jour'+(S.jwho!=="Tous"?" · "+esc(S.jwho):"")+(top.length?' <small class="sub" style="font-weight:600;font-size:13px">'+nDone+'/'+top.length+' fait'+(nDone>1?'s':'')+'</small>':'')+'</h3>'+(top.length?'<ol>'+top.map(function(it,i){var c=coches[it.gk];return '<li class="chk'+(c?' done':'')+'"><span class="k">'+(c?'✓':(i+1))+'</span><div><b>'+esc(it.p.name)+' :</b> '+esc(it.act)+(it.facts?'<small>'+esc(it.facts)+'</small>':"")+'</div><label class="cb"><input type="checkbox" data-gk="'+esc(it.gk)+'" data-gi="'+i+'"'+(c?' checked':'')+(S.canWrite?'':' disabled')+'>'+(c?esc(c.who||"")+' · '+esc(heureBkk(c.at)):'Fait')+'</label></li>'}).join("")+'</ol>':'<p class="sub" style="margin:0">Rien à trancher aujourd\'hui : les produits sont en test ou tournent bien.</p>');
+    $("ag-top3").querySelectorAll("input[data-gk]").forEach(function(b){b.onchange=function(){if(!S.db)return;var it=top[+b.getAttribute("data-gi")],k=b.getAttribute("data-gk"),d={};
+      var me=S.me||(function(){try{return localStorage.getItem("labo-author")}catch(e){return ""}})()||"?";
+      d[k]=b.checked?{who:me,at:new Date().toISOString(),name:it.p.name,act:it.act,owner:it.p.owner||""}:null;
+      S.gestes[cyc]=Object.assign({},S.gestes[cyc]||{},d);render();
+      write(S.db.collection("gestes").doc(cyc).update(d),b.checked?it.p.name+" : coché":it.p.name+" : décoché")}});
     $("ag-sum").innerHTML=GROUPS.map(function(g){return '<div class="'+g[0]+'"><b>'+cnt[g[0]]+'</b><span>'+g[1]+'</span></div>'}).join("");
     var html=GROUPS.map(function(g){var l=by[g[0]];if(g[0]==="faire"&&!l.length&&!libres.length)return "";if(g[0]!=="faire"&&!l.length)return "";
       var extra=g[0]==="faire"&&libres.length?'<div class="ag-sec" style="margin-top:10px"><h3 style="font-size:16px">Nouveaux produits, à lancer ou à attribuer · '+libres.length+'</h3><p class="sub">Sans responsable : toi ou Nico ? Le tracker fait foi : écris aussi le nom en colonne Y de <a href="'+TRACKER_URL+'" target="_blank" rel="noopener">Product Sourcing</a>.</p><div class="ag-list">'+libres.map(function(l,i){
@@ -910,6 +928,7 @@ function LaboDB(){
     function snap(name,cb,err){db.collection(name).onSnapshot(cb,err)}
     snap("products",function(s){S.products=s.docs.map(function(d){var x=Object.assign({},d.data());x.id=d.id;return x});gp=true;done();render()},function(){clearTimeout(timer);setStatus("Impossible de lire les produits pour l'instant.",true)});
     snap("jours",function(s){S.jours=s.docs.map(function(d){var x=Object.assign({},d.data());x.id=d.id;return x});render()},function(){});
+    snap("gestes",function(s){var g={};s.docs.forEach(function(d){g[d.id]=d.data()});S.gestes=g;render()},function(){});
     snap("lectures",function(s){S.lectures=s.docs.map(function(d){var x=Object.assign({},d.data());x.id=d.id;return x});render()},function(){});
     snap("changes",function(s){S.changes=s.docs.map(function(d){var x=Object.assign({},d.data());x.id=d.id;return x});gc=true;done();render()},function(){clearTimeout(timer);setStatus("Impossible de lire les changements pour l'instant.",true)});
   })();
