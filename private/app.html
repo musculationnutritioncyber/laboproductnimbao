@@ -68,6 +68,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0;text-wra
 /* à juger */
 .judge-list{display:grid;gap:10px}
 .jcard{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:14px;padding:12px;display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start}
+.pnotes{margin:14px 0;padding:12px;border-radius:14px;background:var(--soft);border:1px solid var(--line)}.pnotes h3{font-family:var(--f-display);font-weight:700;font-size:16px;margin:0 0 8px}.pn{padding:8px 0;border-top:1px solid var(--line)}.pn:first-child{border-top:0;padding-top:0}.pn-h{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.pn-h .pn-del{all:unset;cursor:pointer;margin-left:auto;padding:0 6px;font-size:15px}.pn-t{font-size:14.5px;margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere}.pn-add{display:flex;gap:8px;align-items:flex-end;margin-top:8px}.pn-add textarea{flex:1;min-width:0;font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;resize:vertical}.pn-empty{font-size:13.5px;color:var(--muted)}
 .jopen{all:unset;cursor:pointer}.jopen.jn{font-weight:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}.jopen:focus-visible{outline:2px solid var(--warn);outline-offset:2px;border-radius:6px}
 .jcard .what{font-size:14.5px;overflow-wrap:anywhere}
 .jbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
@@ -524,6 +525,7 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
   <form class="sheet" id="product-form" autocomplete="off">
     <div class="sheet-h"><h3 id="p-title">Produit</h3><button class="x" type="button" data-close aria-label="Fermer">×</button></div>
     <div id="p-hero"></div>
+    <div id="p-notes-wrap" class="pnotes"><h3>Notes de l'équipe</h3><div id="p-notes"></div><div class="pn-add" id="p-notes-add"><textarea id="p-notes-in" rows="2" placeholder="Ex. : les ads sont faibles, on teste sans pousser le budget"></textarea><button type="button" class="btn b" id="p-notes-btn">Ajouter</button></div></div>
     <div id="p-tl-wrap"><h3 style="font-family:var(--f-display);font-weight:700;font-size:16px;margin:0 0 10px">Historique</h3><div class="tl" id="p-tl"></div></div>
     <details class="edit" id="p-edit">
       <summary>Modifier la fiche du Labo</summary>
@@ -884,6 +886,13 @@ function LaboDB(){
       (k.offre?'<span>Offre : '+esc(k.offre)+'</span>':"")+(k.couts?'<span>Coûts : '+esc(k.couts)+'</span>':"")+
       (k.src?'<small>Source : '+esc(k.src)+'. Sans remboursements.</small>':"")+
       (k.alerte?'<span class="al">⚠ '+esc(k.alerte)+'</span>':'<span style="color:var(--good);font-weight:700">✓ Le BE du nom de la CBO est juste.</span>')+'</div>'}
+  /* Notes de l'équipe (21/11, Nico) : notes datées au milieu de la fiche, ex. « ads faibles, on ne pousse pas le test » */
+  function renderNotes(p){
+    var n=(p.notes||[]).slice().sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
+    $("p-notes").innerHTML=n.length?n.map(function(x){return '<div class="pn"><div class="pn-h">'+who(x.who)+' '+esc(dayLabel(x.at))+' '+esc(hour(x.at))+(S.canWrite?'<button type="button" class="pn-del" data-pnd="'+esc(x.at)+'" aria-label="Supprimer la note">×</button>':"")+'</div><div class="pn-t">'+esc(x.txt)+'</div></div>'}).join(""):'<div class="pn-empty">Aucune note pour l\'instant.</div>';
+    $("p-notes-add").hidden=!S.canWrite;
+    $("p-notes").querySelectorAll("[data-pnd]").forEach(function(b){b.onclick=function(){if(!confirm("Supprimer cette note ?"))return;var at=b.getAttribute("data-pnd");var q=prod(p.id);var arr=(q.notes||[]).filter(function(x){return x.at!==at});q.notes=arr;renderNotes(q);write(S.db.collection("products").doc(q.id).update({notes:arr}),"Note supprimée")}});
+  }
   function openProduct(id){
     var p=id?S.products.find(function(x){return x.id===id}):null;S.current=p?p.id:null;
     $("p-title").textContent=p?(p.owner?"Pool "+p.owner:"Produit"):"Nouveau produit";
@@ -897,15 +906,20 @@ function LaboDB(){
         (p.note?'<p style="margin:8px 0 0;font-size:14px;background:var(--soft);border-radius:12px;padding:10px 12px">'+esc(p.note)+'</p>':"");
       var ch=S.changes.filter(function(x){return x.product===p.id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
       $("p-tl").innerHTML=ch.length?ch.map(function(x){return '<div class="tl-i" style="--dot:'+(VCOL[x.variable]||"var(--v-autre)")+'"><div class="d">'+esc(dayLabel(x.at))+' '+esc(hour(x.at))+' '+vchip(x.variable)+' '+who(x.author)+'</div><div style="font-size:14px;margin:3px 0">'+esc(x.what)+'</div>'+resPill(x)+(x.resultNote?' <span class="sub">'+esc(x.resultNote)+'</span>':"")+suivi(x)+'</div>'}).join(""):'<div class="tl-i"><div class="d">Aucun changement noté</div></div>';
+      renderNotes(p);
       $("p-edit").open=false;
     }else{$("p-hero").innerHTML="";$("p-edit").open=true}
-    $("p-tl-wrap").hidden=!p;$("p-add-change").hidden=!p;
+    $("p-tl-wrap").hidden=!p;$("p-notes-wrap").hidden=!p;$("p-add-change").hidden=!p;
     $("p-name").value=p?p.name:"";$("p-owner").value=p?p.owner:"Bastien";$("p-status").value=p?p.status:"Test";
     $("p-offer").value=p?p.offer||"":"";$("p-be").value=p&&p.be!=null?p.be:"";$("p-r10").value=p&&p.r10!=null?p.r10:"";$("p-r20").value=p&&p.r20!=null?p.r20:"";
     $("p-launched").value=p?p.launched||"":todayStr();$("p-note").value=p?p.note||"":"";$("p-url").value=p?p.url||"":"";$("p-fb").value=p?(p.fb||[]).map(function(f){return f.id}).join(", "):"";
     openSheet("sheet-product");
   }
   $("btn-add-product").onclick=function(){openProduct(null)};
+  $("p-notes-btn").onclick=function(){var t=$("p-notes-in").value.trim();if(!t||!S.current||!S.db)return;var q=prod(S.current);
+    var me=S.me||(function(){try{return localStorage.getItem("labo-author")}catch(e){return ""}})()||"?";
+    var arr=(q.notes||[]).concat([{who:me,at:nowLocal(),txt:t}]);q.notes=arr;$("p-notes-in").value="";renderNotes(q);
+    write(S.db.collection("products").doc(q.id).update({notes:arr}),"Note ajoutée sur "+q.name)};
   $("p-add-change").onclick=function(){openChange(S.current)};
   function mergeFb(v){var old={};((prod(S.current)||{}).fb||[]).forEach(function(f){old[f.id]=f.name});return String(v||"").split(/[^0-9]+/).filter(Boolean).map(function(id){return {id:id,name:old[id]||"Campagne "+id}})}
   function slugify(s){return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||("produit-"+Date.now())}
