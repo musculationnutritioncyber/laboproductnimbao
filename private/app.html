@@ -361,7 +361,7 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
           <li><b>« + Changement »</b> : la variable (Pubs, Offre, Prix, Fiche), qui l'a fait, l'heure.</li>
           <li><b>Clic sur le produit &gt; « Modifier la fiche du Labo »</b> : mettre le statut à jour (Lancement…) et la date dans « Lancé le ».</li>
         </ol>
-        <p><b>Variable « Seuil »</b> : un nouveau calcul du BE ou un renommage de CBO. C'est du suivi, pas un test : il ne ferme jamais le test d'offre en cours. Seuls l'offre, le prix, le port et le bundle Kaching ouvrent un test d'offre.</p>
+        <p><b>Test ou suivi.</b> Seules les variables <b>Offre</b> (bundle Kaching compris), <b>Prix</b>, <b>Port</b> et <b>Pubs</b> (lancement des pubs) ouvrent un test de 3 jours. Tout le reste est du <b>suivi</b> : Fiche (photo, guide des tailles, retouche détectée sur le site), Avis, Seuil (BE, nom de CBO), Budget, Autre. Ça s'écrit dans l'historique, mais ça ne relance pas de test et ne décale pas le verdict.</p>
         <p><b>Le piège :</b> les 3 gestes du jour lisent la <b>fiche</b> du produit (statut, date de lancement, seuil BE), pas l'historique. Si on remplit seulement l'historique, le geste reste affiché.</p>
         <p><small>Cas du 20/11 : les pubs Cloud Cowboy tournaient (12 pubs dans Triple Whale), mais la fiche était encore « À lancer ». Bastien l'a corrigée. Les 3 gestes ont maintenant des cases à cocher : on coche quand c'est fait, ça reste barré avec qui et l'heure, et ça repart à zéro à 12 h 01.</small></p>
       </details>
@@ -512,7 +512,7 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
       <label>Qui<select id="f-author"><option>Bastien</option><option>Nico</option><option>Claude</option></select></label>
       <label class="full">Le changement<textarea id="f-what" required placeholder="Ex. 59,90 $ + port → BOGO 69,90 $ livraison offerte"></textarea></label>
       <label>Quand<input id="f-at" type="datetime-local" required></label>
-      <label>À juger le<input id="f-check" type="date" required></label>
+      <label id="f-check-l">À juger le<input id="f-check" type="date" required></label><p id="f-suivi-n" class="sub" hidden>Suivi : écrit dans l'historique, pas de test, le verdict en cours ne bouge pas.</p>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div>
   </form>
@@ -600,12 +600,14 @@ function LaboDB(){
   function rc(p){return rcv(p.roas_g!=null&&p.roas_g!==""?p.roas_g:p.roas,p)}
   /* un changement est « remplacé » si un autre changement a touché le même produit avant la fin de ses 3 jours : on ne peut plus le juger seul */
   /* « Seuil » (calcul du BE, renommage de CBO) = simple suivi : ce n'est pas un test, il ne ferme ni ne remplace jamais un test en cours (Nico, 20/11) */
-  function isTest(c){return c.variable!=="Seuil"&&!!c.checkOn}
+  /* 21/11 (Bastien + Nico) : seules les VARIABLES ouvrent un test de 3 jours : offre, prix, port (bundle Kaching = Offre), lancement des pubs. Le reste (Fiche, Avis, Seuil, Budget, Autre) = suivi : écrit dans l'historique, ne relance ni ne décale aucun verdict */
+  var TESTV={Offre:1,Prix:1,Port:1,Pubs:1};
+  function isTest(c){return !!TESTV[c.variable]&&!!c.checkOn}
   function supBy(c){if(c.result||!isTest(c))return null;return S.changes.filter(function(d){return isTest(d)&&d.id!==c.id&&d.product===c.product&&String(d.at)>String(c.at)&&String(d.at).slice(0,10)<String(c.checkOn||"")}).sort(function(a,b){return String(a.at).localeCompare(String(b.at))})[0]||null}
   var ACT="4350442121854633",BM="861151924737694";
   function fbLink(id){return "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act="+ACT+"&business_id="+BM+"&filter_set=SEARCH_BY_CAMPAIGN_GROUP_ID-STRING%1EEQUAL%1E%22"+id+"%22"}
   function bigImg(src){return String(src||"").replace(/([?&])width=\d+/,"$1width=1200")}
-  function lastChange(id){return S.changes.filter(function(c){return c.product===id&&c.variable!=="Seuil"}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))})[0]}
+  function lastChange(id){return S.changes.filter(function(c){return c.product===id&&!!TESTV[c.variable]}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))})[0]}
   function photo(p,cls){
     var src=p.img||(IMGS.indexOf(p.id)>=0?"img/"+p.id+".webp":"");
     var col=p.owner==="Nico"?"var(--nico)":p.owner==="Bastien"?"var(--bastien)":"var(--muted)";
@@ -638,7 +640,7 @@ function LaboDB(){
   function freeTile(p){return '<div class="freewrap">'+tile(p)+(S.canWrite?'<div class="ownbtns"><button type="button" class="btn b" data-give="Bastien" data-id="'+esc(p.id)+'">Bastien</button><button type="button" class="btn n" data-give="Nico" data-id="'+esc(p.id)+'">Nicolas</button></div>':"")+'</div>'}
   function render(){
     var today=todayStr();
-    var due=S.changes.filter(function(c){return !c.result&&c.checkOn&&c.checkOn<=today&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var due=S.changes.filter(function(c){return isTest(c)&&!c.result&&c.checkOn<=today&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
     S.dueCount=due.length;
     var nd=$("n-due");nd.textContent=due.length;nd.hidden=!due.length;
     var live=S.products.filter(function(p){return p.status!=="Coupé"});
@@ -701,8 +703,8 @@ function LaboDB(){
     var be=p.be||d.be||null,r10=p.r10||d.r10||null,start=d.first_day||p.launched||"";
     var it={p:p,d:d,g:"",phase:"",act:"",facts:"",w:Math.max(d.s3||0,d.spend_tot&&!d.s3?0:0),judge:null};
     var f3=function(){return "3 derniers jours : "+usd0(d.s3)+" · "+pl(d.n3,"vente")+" NC · ROAS NC "+num(d.roas3)+(d.roas3_g!=null?" · global "+num(d.roas3_g):"")+(d.roas3_meta!=null?" · Meta "+num(d.roas3_meta):"")+" (BE "+num(be)+(r10?" · 10 % "+num(r10):"")+")"};
-    var due=S.changes.filter(function(c){return c.product===p.id&&!c.result&&c.checkOn&&c.checkOn<=t&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
-    var pend=S.changes.filter(function(c){return c.product===p.id&&!c.result&&c.checkOn&&c.checkOn>t&&!supBy(c)}).sort(function(a,b){return String(b.checkOn).localeCompare(String(a.checkOn))});
+    var due=S.changes.filter(function(c){return c.product===p.id&&isTest(c)&&!c.result&&c.checkOn<=t&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var pend=S.changes.filter(function(c){return c.product===p.id&&isTest(c)&&!c.result&&c.checkOn>t&&!supBy(c)}).sort(function(a,b){return String(b.checkOn).localeCompare(String(a.checkOn))});
     if(p.status==="À lancer"&&!d.spend_tot){it.g="faire";it.phase="À lancer";it.act=be?"Lancer les pubs (CBO, BE "+num(be)+")":"Calculer le BE (onglet Calcul BE) puis lancer les pubs";it.facts=p.offer||"Offre à compléter";return it}
     var full=start?diffD(fin,start)+1:null;
     if(full!=null&&full<3&&p.status!=="Scale"){it.g="attendre";it.phase=full<=0?"Lancé aujourd'hui":"Test J"+full+"/3";it.act="On ne touche pas. Verdict le "+frDate(addDays(start,3));
@@ -863,11 +865,13 @@ function LaboDB(){
   $("p-status").innerHTML=STATUSES.map(function(v){return "<option>"+v+"</option>"}).join("");
   try{var me=localStorage.getItem("labo-author");if(me)$("f-author").value=me}catch(e){}
   function nowLocal(){var d=new Date();return todayStr()+"T"+pad(d.getHours())+":"+pad(d.getMinutes())}
-  function openChange(id){closeSheets();if(id)$("f-product").value=id;$("f-what").value="";$("f-at").value=nowLocal();$("f-check").value=addDays(todayStr(),3);openSheet("sheet-change");setTimeout(function(){$("f-what").focus()},30)}
+  function openChange(id){closeSheets();if(id)$("f-product").value=id;$("f-what").value="";$("f-at").value=nowLocal();$("f-check").value=addDays(todayStr(),3);syncCheck();openSheet("sheet-change");setTimeout(function(){$("f-what").focus()},30)}
   $("btn-add-change").onclick=function(){openChange(null)};
+  function syncCheck(){var t=!!TESTV[$("f-variable").value];$("f-check-l").hidden=!t;$("f-check").required=t;$("f-suivi-n").hidden=t}
+  $("f-variable").addEventListener("change",syncCheck);
   $("f-at").addEventListener("change",function(){var v=$("f-at").value;if(v)$("f-check").value=addDays(v.slice(0,10),3)});
   $("change-form").addEventListener("submit",function(e){e.preventDefault();if(!S.db)return;var a=$("f-author").value;try{localStorage.setItem("labo-author",a)}catch(er){}
-    var d={product:$("f-product").value,variable:$("f-variable").value,author:a,what:$("f-what").value.trim(),at:$("f-at").value,checkOn:$("f-variable").value==="Seuil"?"":$("f-check").value,result:"",resultNote:"",createdAt:new Date().toISOString()};
+    var d={product:$("f-product").value,variable:$("f-variable").value,author:a,what:$("f-what").value.trim(),at:$("f-at").value,checkOn:TESTV[$("f-variable").value]?$("f-check").value:"",result:"",resultNote:"",createdAt:new Date().toISOString()};
     if(!d.product||!d.what)return;closeSheets();write(S.db.collection("changes").add(d),"Changement enregistré")});
 
   function kaloLinks(p){var k=p.be_check||{},L=[];if(k.kalodata)L.push(k.kalodata);(k.kalodata_plus||[]).forEach(function(u){L.push(u)});
