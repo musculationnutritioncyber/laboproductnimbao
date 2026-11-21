@@ -648,7 +648,7 @@ function LaboDB(){
       '<div class="stat r"><b>'+under+'</b><span>en test sous<br>le seuil</span></div><div class="stat g"><b>'+good+'</b><span>au-dessus<br>du ROAS 10 %</span></div>';
     $("go-judge").onclick=function(){var j=$("judge-wrap");if(!j.hidden)j.scrollIntoView({behavior:"smooth",block:"start"})};
     $("judge-list").innerHTML=due.map(function(c){var p=prod(c.product);
-      return '<div class="jcard">'+photo(p,"sm")+'<div><div class="t-name">'+esc(p.name)+' '+who(c.author)+' '+vchip(c.variable)+' <span class="t-last">'+esc(frDate(c.at))+'</span></div><div class="what">'+esc(c.what)+'</div>'+suivi(c)+
+      return '<div class="jcard">'+photo(p,"sm")+'<div><div class="t-name">'+esc(p.name)+' '+(p.owner?who(p.owner):"")+' '+vchip(c.variable)+' <span class="t-last">'+esc(frDate(c.at))+'</span></div><div class="what">'+esc(c.what)+'</div>'+suivi(c)+
       (S.canWrite?'<div class="jbtns"><input id="jn-'+esc(c.id)+'" placeholder="Une phrase : le chiffre, le verdict" aria-label="Note"><button type="button" class="jb g" data-j="mieux" data-c="'+esc(c.id)+'">Mieux</button><button type="button" class="jb w" data-j="pareil" data-c="'+esc(c.id)+'">Pareil</button><button type="button" class="jb r" data-j="pire" data-c="'+esc(c.id)+'">Pire</button></div>':"")+'</div></div>'}).join("");
     $("judge-list").querySelectorAll("[data-j]").forEach(function(b){b.onclick=function(){judge(b.getAttribute("data-c"),b.getAttribute("data-j"))}});
 
@@ -676,7 +676,7 @@ function LaboDB(){
       .sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
     var html="",lastDay="";
     hs.forEach(function(c){var p=prod(c.product),d=String(c.at).slice(0,10);if(d!==lastDay){html+='<div class="day">'+esc(dayLabel(d))+'</div>';lastDay=d}
-      html+='<div class="hrow" style="border-left-color:'+(VCOL[c.variable]||"var(--v-autre)")+'">'+photo(p,"sm")+'<div style="min-width:0"><div class="h1"><b>'+esc(p.name)+'</b>'+vchip(c.variable)+resPill(c)+'<span class="time">'+who(c.author)+' '+esc(hour(c.at))+'</span></div><div class="txt">'+esc(c.what)+'</div>'+suivi(c)+(c.resultNote?'<div class="rn">'+esc(c.resultNote)+'</div>':"")+'</div></div>'});
+      html+='<div class="hrow" style="border-left-color:'+(VCOL[c.variable]||"var(--v-autre)")+'">'+photo(p,"sm")+'<div style="min-width:0"><div class="h1"><b>'+esc(p.name)+'</b>'+vchip(c.variable)+resPill(c)+'<span class="time">'+(p.owner?who(p.owner):"")+' '+esc(hour(c.at))+'</span></div><div class="txt">'+esc(c.what)+'</div>'+suivi(c)+(c.resultNote?'<div class="rn">'+esc(c.resultNote)+'</div>':"")+'</div></div>'});
     $("history").innerHTML=html||'<div class="empty">Aucun changement pour ce filtre.</div>';
 
     var opts=S.products.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name))}).map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+' ('+esc(p.owner)+')</option>'}).join("");
