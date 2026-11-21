@@ -68,6 +68,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0;text-wra
 /* à juger */
 .judge-list{display:grid;gap:10px}
 .jcard{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:14px;padding:12px;display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start}
+.jopen{all:unset;cursor:pointer}.jopen.jn{font-weight:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}.jopen:focus-visible{outline:2px solid var(--warn);outline-offset:2px;border-radius:6px}
 .jcard .what{font-size:14.5px;overflow-wrap:anywhere}
 .jbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
 .jbtns input{flex:1;min-width:150px}
@@ -650,8 +651,9 @@ function LaboDB(){
       '<div class="stat r"><b>'+under+'</b><span>en test sous<br>le seuil</span></div><div class="stat g"><b>'+good+'</b><span>au-dessus<br>du ROAS 10 %</span></div>';
     $("go-judge").onclick=function(){var j=$("judge-wrap");if(!j.hidden)j.scrollIntoView({behavior:"smooth",block:"start"})};
     $("judge-list").innerHTML=due.map(function(c){var p=prod(c.product);
-      return '<div class="jcard">'+photo(p,"sm")+'<div><div class="t-name">'+esc(p.name)+' '+(p.owner?who(p.owner):"")+' '+vchip(c.variable)+' <span class="t-last">'+esc(frDate(c.at))+'</span></div><div class="what">'+esc(c.what)+'</div>'+suivi(c)+
+      return '<div class="jcard"><button type="button" class="jopen" data-jp="'+esc(p.id)+'" aria-label="Ouvrir '+esc(p.name)+'">'+photo(p,"sm")+'</button><div><div class="t-name"><button type="button" class="jopen jn" data-jp="'+esc(p.id)+'">'+esc(p.name)+'</button> '+(p.owner?who(p.owner):"")+' '+vchip(c.variable)+' <span class="t-last">'+esc(frDate(c.at))+'</span></div><div class="what">'+esc(c.what)+'</div>'+suivi(c)+
       (S.canWrite?'<div class="jbtns"><input id="jn-'+esc(c.id)+'" placeholder="Une phrase : le chiffre, le verdict" aria-label="Note"><button type="button" class="jb g" data-j="mieux" data-c="'+esc(c.id)+'">Mieux</button><button type="button" class="jb w" data-j="pareil" data-c="'+esc(c.id)+'">Pareil</button><button type="button" class="jb r" data-j="pire" data-c="'+esc(c.id)+'">Pire</button></div>':"")+'</div></div>'}).join("");
+    $("judge-list").querySelectorAll("[data-jp]").forEach(function(b){b.onclick=function(){openProduct(b.getAttribute("data-jp"))}});
     $("judge-list").querySelectorAll("[data-j]").forEach(function(b){b.onclick=function(){judge(b.getAttribute("data-c"),b.getAttribute("data-j"))}});
 
     var free=S.products.filter(function(p){return p.owner!=="Bastien"&&p.owner!=="Nico"}).length;
