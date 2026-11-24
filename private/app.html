@@ -600,6 +600,8 @@ function LaboDB(){
   function toast(m){var t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true},2200)}
   function setStatus(m,err){var s=$("status");s.textContent=m||"";s.hidden=!m;s.className="status"+(err?" err":"")}
   function prod(id){return S.products.find(function(p){return p.id===id})||{id:id,name:id,owner:""}}
+  /* 24/11 (Nico) : taux d'ajout au panier Facebook = ajouts au panier / vues de la page (Meta, 3 j) ; vert dès 10 %, orange dès 6 % */
+  function atcK(p){var a=p.atc;if(!a||a.rate==null)return '<div class="k"><span>Ajout panier FB</span><b class="c-none">–</b></div>';var c=a.rate>=10?"good":(a.rate>=6?"warn":"bad");return '<div class="k" title="'+esc(a.atc+" ajouts au panier pour "+a.lpv+" vues de la page · "+(a.win||""))+'"><span>Ajout panier FB</span><b class="c-'+c+'">'+String(a.rate).replace(".",",")+' %</b><small class="sub" style="display:block;font-size:11px">'+esc(a.atc+" / "+a.lpv+" vues")+'</small></div>'}
   function rcv(v,p){if(v==null||v==="")return "none";if(p.be&&v<p.be)return "bad";if(p.r10&&v<p.r10)return "warn";return "good"}
   function rc(p){return rcv(p.roas_g!=null&&p.roas_g!==""?p.roas_g:p.roas,p)}
   /* un changement est « remplacé » si un autre changement a touché le même produit avant la fin de ses 3 jours : on ne peut plus le juger seul */
@@ -907,7 +909,7 @@ function LaboDB(){
     $("p-name-wrap").hidden=!!p;
     if(p){var c=rc(p);
       $("p-hero").innerHTML='<div class="hero '+esc(p.owner)+'">'+photo(p,"lg")+'<div style="min-width:0"><h4>'+esc(p.name)+'</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0"><span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span>'+(p.launched?'<span class="pill res-none">lancé le '+esc(frDate(p.launched))+'</span>':"")+'</div><div class="t-offer" style="white-space:normal">'+esc(p.offer||"Offre à compléter")+'</div></div></div>'+
-        '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS global TW</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b></div><div class="k"><span>ROAS New Customer</span><b class="c-'+rcv(p.roas,p)+'">'+num(p.roas)+'</b></div><div class="k"><span>ROAS Meta</span><b class="c-'+rcv(p.roas_meta,p)+'">'+num(p.roas_meta)+'</b></div></div>'+
+        '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS global TW</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b></div><div class="k"><span>ROAS New Customer</span><b class="c-'+rcv(p.roas,p)+'">'+num(p.roas)+'</b></div><div class="k"><span>ROAS Meta</span><b class="c-'+rcv(p.roas_meta,p)+'">'+num(p.roas_meta)+'</b></div>'+atcK(p)+'</div>'+
         '<div class="kpi4" style="margin-top:8px"><div class="k"><span>Seuil BE</span><b>'+num(p.be)+'</b></div><div class="k"><span>ROAS 10 %</span><b>'+num(p.r10)+'</b></div><div class="k"><span>ROAS 20 %</span><b>'+num(p.r20)+'</b></div></div>'+
         '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+kaloLinks(p)+sourcingLink(p)+'</div>'+beCheckBox(p)+
         (p.roasWindow?'<p class="sub" style="margin-top:6px">'+esc(p.roasWindow)+(p.spend!=null&&p.spend!==""?' · dépense '+num(p.spend,0)+' $':"")+'</p>':"")+
