@@ -620,6 +620,8 @@ function LaboDB(){
   /* 21/11 (Bastien + Nico) : seules les VARIABLES ouvrent un test de 3 jours : offre, prix, port (bundle Kaching = Offre), lancement des pubs. Le reste (Fiche, Avis, Seuil, Budget, Autre) = suivi : écrit dans l'historique, ne relance ni ne décale aucun verdict */
   var TESTV={Offre:1,Prix:1,Port:1,Pubs:1};
   function isTest(c){return !!TESTV[c.variable]&&!!c.checkOn}
+  /* 25/11 (Nico) : un 1er lancement de pubs ne se juge pas en Mieux / Pareil / Pire (rien à comparer). Le verdict J3 se lit sur le ROAS face au BE. Seuls les changements faits APRÈS le 1er lancement se jugent ; une relance se juge */
+  function isLaunch(c){return c.variable==="Pubs"&&/lanc/i.test(String(c.what||""))&&!/relanc/i.test(String(c.what||""))&&!S.changes.some(function(d){return d.variable==="Pubs"&&d.product===c.product&&d.id!==c.id&&String(d.at)<String(c.at)})}
   function supBy(c){if(c.result||!isTest(c))return null;return S.changes.filter(function(d){return isTest(d)&&d.id!==c.id&&d.product===c.product&&String(d.at)>String(c.at)&&String(d.at).slice(0,10)<String(c.checkOn||"")}).sort(function(a,b){return String(a.at).localeCompare(String(b.at))})[0]||null}
   var ACT="4350442121854633",BM="861151924737694";
   function fbLink(id){return "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act="+ACT+"&business_id="+BM+"&filter_set=SEARCH_BY_CAMPAIGN_GROUP_ID-STRING%1EEQUAL%1E%22"+id+"%22"}
@@ -638,7 +640,7 @@ function LaboDB(){
   function sl(x){return '<div><b>'+esc(x.j||"")+'</b> '+esc(x.txt||"")+'</div>'}
   function suivi(c){var L=c.suivi||[];if(!L.length)return "";return '<div class="suivi">'+sl(L[L.length-1])+'</div>'}
   function more(c){var L=c.suivi||[],d=c.detail||"";if(!d&&L.length<2)return "";return '<details class="more"><summary>Détail</summary>'+(d?'<div class="md">'+d.split(" · ").map(function(t){return '<div>• '+esc(t)+'</div>'}).join("")+'</div>':"")+(L.length>1?'<div class="suivi">'+L.slice(0,-1).map(sl).join("")+'</div>':"")+'</details>'}
-  function resPill(c){if(!isTest(c))return '<span class="pill res-none">suivi (pas un test)</span>';var sb=supBy(c);if(sb)return '<span class="pill res-sup">remplacé par le changement du '+esc(frDate(sb.at))+'</span>';return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
+  function resPill(c){if(!isTest(c))return '<span class="pill res-none">suivi (pas un test)</span>';var sb=supBy(c);if(sb)return '<span class="pill res-sup">remplacé par le changement du '+esc(frDate(sb.at))+'</span>';if(!c.result&&isLaunch(c))return '<span class="pill res-none">1er lancement · verdict J3 le '+esc(frDate(c.checkOn))+' (ROAS face au BE)</span>';return c.result?'<span class="pill res-'+esc(c.result)+'">'+RES[c.result]+'</span>':'<span class="pill res-none">à juger le '+esc(frDate(c.checkOn))+'</span>'}
 
   /* vues */
   function view(){var h=(location.hash||"").replace("#","");return ["aujourdhui","pools","historique","calcul","analyse"].indexOf(h)>=0?h:"aujourdhui"}
@@ -662,7 +664,7 @@ function LaboDB(){
   function freeTile(p){return '<div class="freewrap">'+tile(p)+(S.canWrite?'<div class="ownbtns"><button type="button" class="btn b" data-give="Bastien" data-id="'+esc(p.id)+'">Bastien</button><button type="button" class="btn n" data-give="Nico" data-id="'+esc(p.id)+'">Nicolas</button></div>':"")+'</div>'}
   function render(){
     var today=todayStr();
-    var due=S.changes.filter(function(c){return isTest(c)&&!c.result&&c.checkOn<=today&&!supBy(c)&&prod(c.product).status!=="Coupé"}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var due=S.changes.filter(function(c){return isTest(c)&&!isLaunch(c)&&!c.result&&c.checkOn<=today&&!supBy(c)&&prod(c.product).status!=="Coupé"}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
     S.dueCount=due.length;
     var nd=$("n-due");nd.textContent=due.length;nd.hidden=!due.length;
     var live=S.products.filter(function(p){return p.status!=="Coupé"});
@@ -729,7 +731,7 @@ function LaboDB(){
     var be=p.be||d.be||null,r10=p.r10||d.r10||null,start=d.first_day||p.launched||"";
     var it={p:p,d:d,g:"",phase:"",act:"",facts:"",w:Math.max(d.s3||0,d.spend_tot&&!d.s3?0:0),judge:null};
     var f3=function(){return "3 derniers jours : "+usd0(d.s3)+" · "+pl(d.n3,"vente")+" NC · ROAS NC "+num(d.roas3)+(d.roas3_g!=null?" · global "+num(d.roas3_g):"")+(d.roas3_meta!=null?" · Meta "+num(d.roas3_meta):"")+" (BE "+num(be)+(r10?" · 10 % "+num(r10):"")+")"};
-    var due=S.changes.filter(function(c){return c.product===p.id&&isTest(c)&&!c.result&&c.checkOn<=t&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var due=S.changes.filter(function(c){return c.product===p.id&&isTest(c)&&!isLaunch(c)&&!c.result&&c.checkOn<=t&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
     var pend=S.changes.filter(function(c){return c.product===p.id&&isTest(c)&&!c.result&&c.checkOn>t&&!supBy(c)}).sort(function(a,b){return String(b.checkOn).localeCompare(String(a.checkOn))});
     if(p.status==="À lancer"&&!d.spend_tot){it.g="faire";it.phase="À lancer";it.act=be?"Lancer les pubs (CBO, BE "+num(be)+")":"Calculer le BE (onglet Calcul BE) puis lancer les pubs";it.facts=p.offer||"Offre à compléter";return it}
     var full=start?diffD(fin,start)+1:null;
