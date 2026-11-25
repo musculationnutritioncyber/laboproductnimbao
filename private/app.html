@@ -107,6 +107,8 @@ img.ph{cursor:zoom-in}
 .plinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .plinks a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);color:inherit;text-decoration:none;font-weight:600;font-size:13.5px}
 .plinks a:hover{background:var(--surface)}
+.lst{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--soft);font-size:14px}.lst .lst-t{flex:1;min-width:180px}.lst .lst-t b{display:block;font-size:14.5px}.lst .lst-t small{color:var(--muted);font-size:12.5px}.lst .lst-t a{color:inherit;font-weight:600}.lst.afaire{background:var(--warn-soft);border-color:var(--warn)}.lst.afaire b{color:var(--warn)}.lst.fait{background:var(--good-soft);border-color:var(--good)}.lst.fait b{color:var(--good)}.lst .btn.ok{background:var(--good);color:#fff;border:0;font-weight:700}
+.lst-badge{display:block;margin-top:3px;color:var(--warn);font-size:11.5px;font-weight:700;line-height:1.3;white-space:normal}
 .be-alert{display:block;margin-top:3px;color:var(--bad);font-size:11.5px;font-weight:700;line-height:1.3;white-space:normal}
 .bechk{margin-top:10px;border-radius:12px;padding:10px 12px;background:var(--soft);border:1px solid var(--line);font-size:13px;display:grid;gap:3px}
 .bechk.bad{background:var(--bad-soft);border-color:var(--bad-line)}
@@ -499,6 +501,7 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
           <li>Verdict : vert = ROAS NC au-dessus du ROAS 10 %, orange = entre le BE et le 10 %, rouge = sous le BE. « Petit volume » : moins de 5 achats NC en 3 jours.</li>
           <li>ATC rate « anormal » : plus du double du compte, l'événement add to cart est sans doute mal compté.</li>
           <li>Angles qui marchent : pubs à 80 $ de spend ou plus sur 7 jours, ROAS NC au moins égal au BE, 3 achats NC ou plus. L'angle est lu dans le nom de l'ad set.</li>
+          <li>Listicle : dès qu'un produit dépense 200 $ par jour (moyenne des 3 derniers jours), on lui crée un listicle. La tuile affiche « Listicle à faire » ; dans la fiche, le bouton « Fait » le coche.</li>
         </ul>
       </div>
     </section>
@@ -643,7 +646,7 @@ function LaboDB(){
       '<span style="min-width:0"><span class="t-name">'+esc(p.name)+' <span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span></span>'+
       '<span class="t-offer" style="display:block">'+esc(p.offer||"Offre à compléter")+'</span>'+
       '<span class="t-last" style="display:block">'+(lc?vchip(lc.variable)+' '+(ds===0?"aujourd'hui":ds===1?"hier":"il y a "+ds+" j"):"Aucun changement noté")+'</span></span>'+
-      '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small>'+(p.be_check&&p.be_check.alerte?'<span class="be-alert">⚠ '+esc(p.be_check.alerte)+'</span>':'')+'<span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
+      '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small>'+(p.be_check&&p.be_check.alerte?'<span class="be-alert">⚠ '+esc(p.be_check.alerte)+'</span>':'')+(lstState(p)==="afaire"?'<span class="lst-badge">📰 Listicle à faire</span>':'')+'<span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
   }
 
   function freeTile(p){return '<div class="freewrap">'+tile(p)+(S.canWrite?'<div class="ownbtns"><button type="button" class="btn b" data-give="Bastien" data-id="'+esc(p.id)+'">Bastien</button><button type="button" class="btn n" data-give="Nico" data-id="'+esc(p.id)+'">Nicolas</button></div>':"")+'</div>'}
@@ -903,12 +906,30 @@ function LaboDB(){
     $("p-notes-add").hidden=!S.canWrite;
     $("p-notes").querySelectorAll("[data-pnd]").forEach(function(b){b.onclick=function(){if(!confirm("Supprimer cette note ?"))return;var at=b.getAttribute("data-pnd");var q=prod(p.id);var arr=(q.notes||[]).filter(function(x){return x.at!==at});q.notes=arr;renderNotes(q);write(S.db.collection("products").doc(q.id).update({notes:arr}),"Note supprimée")}});
   }
+  /* Listicle (25/11, Nico) : dès qu'un produit dépense LST_SEUIL $ par jour (moyenne des 3 derniers jours), il lui faut un listicle. Champ products.listicle = {done, who, at, url}. */
+  var LST_SEUIL=200;
+  function lstDay(p){var J=latestJour(),d=(J&&J.produits&&J.produits[p.id])||{};var s=d.s3!=null?d.s3:(p.spend!=null&&p.spend!==""?Number(p.spend):null);return s==null||isNaN(s)?null:s/3}
+  function lstState(p){if(p.listicle&&p.listicle.done)return "fait";var a=lstDay(p);return a!=null&&a>=LST_SEUIL&&p.status!=="Coupé"?"afaire":"non"}
+  function renderLst(p){
+    var el=$("p-lst");if(!el||!p)return;
+    var st=lstState(p),l=p.listicle||{},a=lstDay(p),dep=a==null?"dépense inconnue":usd0(a)+" par jour (moyenne 3 j)",h;
+    if(st==="fait")h='<div class="lst-t"><b>✓ Listicle fait</b><small>'+(l.who?esc(l.who)+" · ":"")+(l.at?esc(frDate(String(l.at).slice(0,10))):"")+(l.url?' · <a href="'+esc(l.url)+'" target="_blank" rel="noopener">ouvrir le listicle</a>':"")+'</small></div>'+(S.canWrite?'<button type="button" class="btn" data-lst="0">Pas fait</button>':"");
+    else if(st==="afaire")h='<div class="lst-t"><b>📰 Listicle à créer</b><small>'+esc(dep)+", seuil "+LST_SEUIL+' $ par jour</small></div>'+(S.canWrite?'<button type="button" class="btn ok" data-lst="1">Fait</button>':"");
+    else h='<div class="lst-t"><b>Listicle : pas encore</b><small>'+esc(dep)+", à créer à partir de "+LST_SEUIL+' $ par jour</small></div>'+(S.canWrite?'<button type="button" class="btn" data-lst="1">Déjà fait</button>':"");
+    el.innerHTML='<div class="lst '+st+'">'+h+'</div>';
+    var b=el.querySelector("[data-lst]");if(!b)return;
+    b.onclick=function(){var q=prod(p.id),v;
+      if(b.getAttribute("data-lst")==="1"){var u=prompt("Lien du listicle (facultatif)","");if(u===null)return;u=u.trim();if(u&&!/^https?:\/\//i.test(u))u="https://"+u;
+        var me=S.me||(function(){try{return localStorage.getItem("labo-author")}catch(e){return ""}})()||"?";v={done:true,who:me,at:nowLocal(),url:u}}
+      else v={done:false};
+      q.listicle=v;renderLst(q);render();write(S.db.collection("products").doc(q.id).update({listicle:v}),v.done?"Listicle noté fait sur "+q.name:"Listicle remis en « pas fait »")};
+  }
   function openProduct(id){
     var p=id?S.products.find(function(x){return x.id===id}):null;S.current=p?p.id:null;
     $("p-title").textContent=p?(p.owner?"Pool "+p.owner:"Produit"):"Nouveau produit";
     $("p-name-wrap").hidden=!!p;
     if(p){var c=rc(p);
-      $("p-hero").innerHTML='<div class="hero '+esc(p.owner)+'">'+photo(p,"lg")+'<div style="min-width:0"><h4>'+esc(p.name)+'</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0"><span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span>'+(p.launched?'<span class="pill res-none">lancé le '+esc(frDate(p.launched))+'</span>':"")+'</div><div class="t-offer" style="white-space:normal">'+esc(p.offer||"Offre à compléter")+'</div></div></div>'+
+      $("p-hero").innerHTML='<div class="hero '+esc(p.owner)+'">'+photo(p,"lg")+'<div style="min-width:0"><h4>'+esc(p.name)+'</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0"><span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span>'+(p.launched?'<span class="pill res-none">lancé le '+esc(frDate(p.launched))+'</span>':"")+'</div><div class="t-offer" style="white-space:normal">'+esc(p.offer||"Offre à compléter")+'</div></div></div><div id="p-lst"></div>'+
         '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS global TW</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b></div><div class="k"><span>ROAS New Customer</span><b class="c-'+rcv(p.roas,p)+'">'+num(p.roas)+'</b></div><div class="k"><span>ROAS Meta</span><b class="c-'+rcv(p.roas_meta,p)+'">'+num(p.roas_meta)+'</b></div>'+atcK(p)+'</div>'+
         '<div class="kpi4" style="margin-top:8px"><div class="k"><span>Seuil BE</span><b>'+num(p.be)+'</b></div><div class="k"><span>ROAS 10 %</span><b>'+num(p.r10)+'</b></div><div class="k"><span>ROAS 20 %</span><b>'+num(p.r20)+'</b></div></div>'+
         '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+kaloLinks(p)+sourcingLink(p)+'</div>'+beCheckBox(p)+
@@ -918,6 +939,9 @@ function LaboDB(){
       $("p-tl").innerHTML=ch.length?ch.map(function(x){return '<div class="tl-i" style="--dot:'+(VCOL[x.variable]||"var(--v-autre)")+'"><div class="d">'+esc(dayLabel(x.at))+' '+esc(hour(x.at))+' '+vchip(x.variable)+' '+who(x.author)+'</div><div style="font-size:14px;margin:3px 0">'+esc(x.what)+'</div>'+resPill(x)+(x.resultNote?' <span class="sub">'+esc(x.resultNote)+'</span>':"")+suivi(x)+more(x)+'</div>'}).join(""):'<div class="tl-i"><div class="d">Aucun changement noté</div></div>';
       renderNotes(p);
       $("p-edit").open=false;
+    }
+    renderLst(p);
+    if(p){
     }else{$("p-hero").innerHTML="";$("p-edit").open=true}
     $("p-tl-wrap").hidden=!p;$("p-notes-wrap").hidden=!p;$("p-add-change").hidden=!p;
     $("p-name").value=p?p.name:"";$("p-owner").value=p?p.owner:"Bastien";$("p-status").value=p?p.status:"Test";
