@@ -126,6 +126,14 @@ img.ph{cursor:zoom-in}
 .pill.st-Test,.pill.st-Lancement{background:var(--bastien-soft);color:var(--bastien)} .pill.st-Itération{background:var(--claude-soft);color:var(--claude)}
 .pill.st-Scale{background:linear-gradient(90deg,#F7D774,#E0A82E);color:#3A2800} .pill.st-Coupé{background:var(--line);color:var(--muted)} .pill.st-À.lancer,.pill[class*="st-À"]{background:var(--line);color:var(--ink)}
 .group-label.gold{color:var(--gold)}
+/* 25/11 (Nico) : produits dont les campagnes sont coupées sur Facebook = sortis des pools, rangés en bas dans « Archivés » */
+.archive{grid-column:1/-1;border:1px dashed var(--line);border-radius:18px;background:var(--surface)}
+.archive>summary{cursor:pointer;list-style:none;padding:14px 16px;font-family:var(--f-display);font-weight:800;font-size:16px;color:var(--muted);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.archive>summary::-webkit-details-marker{display:none}
+.archive>summary:before{content:"▸";font-size:13px}.archive[open]>summary:before{content:"▾"}
+.archive>summary small{font-family:inherit;font-weight:500;font-size:12.5px}
+.arch-body{padding:0 10px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.tile.arch{grid-template-columns:44px minmax(0,1fr) auto;opacity:.82}.tile.arch .t-offer{white-space:normal}.tile.arch:hover{opacity:1}
 .tile.gold{background:var(--gold-soft);border-color:var(--gold-line);box-shadow:inset 0 0 0 1px var(--gold-line)}
 .tile.gold .ph{box-shadow:0 0 0 2px var(--gold-line)}
 .pool.Libre .pool-h{background:var(--muted)}
@@ -649,10 +657,12 @@ function LaboDB(){
       '<span class="roas"><span class="rl">global 3 j</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b><span class="rnc c-'+rcv(p.roas,p)+'">NC '+num(p.roas)+'</span><small>BE '+num(p.be)+' · 10 % '+num(p.r10)+' · 20 % '+num(p.r20)+'</small>'+(p.be_check&&p.be_check.alerte?'<span class="be-alert">⚠ '+esc(p.be_check.alerte)+'</span>':'')+(lstState(p)==="afaire"?'<span class="lst-badge">📰 Listicle à faire</span>':'')+'<span class="rl">dépense 3 j '+(p.spend!=null&&p.spend!==""?Math.round(p.spend).toLocaleString("fr-FR")+' $':"-")+'</span><span class="mini"><i style="width:'+w+'%;background:'+col+'"></i>'+(p.be?'<span class="tk" style="left:'+(p.be/max*100)+'%"></span>':"")+'</span></span></button>';
   }
 
+  function archTile(p){var a=p.archived||{};
+    return '<button type="button" class="tile arch" data-p="'+esc(p.id)+'">'+photo(p,"sm")+'<span style="min-width:0"><span class="t-name">'+esc(p.name)+' '+(p.owner?who(p.owner):"")+'</span><span class="t-offer" style="display:block">'+esc(a.at?"Archivé le "+frDate(a.at)+(a.why?" · "+a.why:""):"Coupé")+'</span></span><span class="t-last">'+(p.launched?"lancé le "+esc(frDate(p.launched)):"")+'</span></button>'}
   function freeTile(p){return '<div class="freewrap">'+tile(p)+(S.canWrite?'<div class="ownbtns"><button type="button" class="btn b" data-give="Bastien" data-id="'+esc(p.id)+'">Bastien</button><button type="button" class="btn n" data-give="Nico" data-id="'+esc(p.id)+'">Nicolas</button></div>':"")+'</div>'}
   function render(){
     var today=todayStr();
-    var due=S.changes.filter(function(c){return isTest(c)&&!c.result&&c.checkOn<=today&&!supBy(c)}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
+    var due=S.changes.filter(function(c){return isTest(c)&&!c.result&&c.checkOn<=today&&!supBy(c)&&prod(c.product).status!=="Coupé"}).sort(function(a,b){return String(a.checkOn).localeCompare(String(b.checkOn))});
     S.dueCount=due.length;
     var nd=$("n-due");nd.textContent=due.length;nd.hidden=!due.length;
     var live=S.products.filter(function(p){return p.status!=="Coupé"});
@@ -667,13 +677,16 @@ function LaboDB(){
     $("judge-list").querySelectorAll("[data-jp]").forEach(function(b){b.onclick=function(){openProduct(b.getAttribute("data-jp"))}});
     $("judge-list").querySelectorAll("[data-j]").forEach(function(b){b.onclick=function(){judge(b.getAttribute("data-c"),b.getAttribute("data-j"))}});
 
-    var free=S.products.filter(function(p){return p.owner!=="Bastien"&&p.owner!=="Nico"}).length;
+    var actifs=S.products.filter(function(p){return p.status!=="Coupé"}),arch=S.products.filter(function(p){return p.status==="Coupé"}).sort(function(a,b){return String((b.archived&&b.archived.at)||"").localeCompare(String((a.archived&&a.archived.at)||""))||String(a.name).localeCompare(String(b.name))});
+    var free=actifs.filter(function(p){return p.owner!=="Bastien"&&p.owner!=="Nico"}).length;
     $("pools").innerHTML=["Bastien","Nico"].concat(free?[""]:[]).map(function(o){
-      var list=S.products.filter(function(p){return o?p.owner===o:(p.owner!=="Bastien"&&p.owner!=="Nico")}).sort(function(a,b){return ((ord[a.status]!=null?ord[a.status]:9)-(ord[b.status]!=null?ord[b.status]:9))||String(a.name).localeCompare(String(b.name))});
-      var groups=[["En lancement",["Lancement","Test"]],["En itération",["Itération"]],["Scale",["Scale"],"gold"],["À lancer",["À lancer"]],["Coupés",["Coupé"]]];
+      var list=actifs.filter(function(p){return o?p.owner===o:(p.owner!=="Bastien"&&p.owner!=="Nico")}).sort(function(a,b){return ((ord[a.status]!=null?ord[a.status]:9)-(ord[b.status]!=null?ord[b.status]:9))||String(a.name).localeCompare(String(b.name))});
+      var groups=[["En lancement",["Lancement","Test"]],["En itération",["Itération"]],["Scale",["Scale"],"gold"],["À lancer",["À lancer"]]];
       var body=groups.map(function(g){var l=list.filter(function(p){return g[1].indexOf(p.status)>=0});return l.length?'<div class="group-label'+(g[2]?" "+g[2]:"")+'">'+(g[2]?"★ ":"")+g[0]+' · '+l.length+'</div>'+l.map(o?tile:freeTile).join(""):""}).join("");
       var cls=o||"Libre",title=o?"Pool "+o:"À attribuer";
-      return '<div class="pool '+cls+(o?"":" pools-extra")+'"><div class="pool-h"><span class="av">'+(o?o.charAt(0):"?")+'</span><div><h3>'+title+'</h3><small>'+list.length+' produit'+(list.length>1?"s":"")+(o?"":" sans responsable dans Product Sourcing")+'</small></div></div><div class="pool-body">'+(body||'<div class="empty">Aucun produit dans ce pool.</div>')+'</div></div>'}).join("");
+      return '<div class="pool '+cls+(o?"":" pools-extra")+'"><div class="pool-h"><span class="av">'+(o?o.charAt(0):"?")+'</span><div><h3>'+title+'</h3><small>'+list.length+' produit'+(list.length>1?"s":"")+(o?"":" sans responsable dans Product Sourcing")+'</small></div></div><div class="pool-body">'+(body||'<div class="empty">Aucun produit dans ce pool.</div>')+'</div></div>'}).join("")+
+      (arch.length?'<details class="archive"'+(S.archOpen?" open":"")+'><summary>Archivés · '+arch.length+' <small>campagnes coupées sur Facebook, sortis des listes</small></summary><div class="arch-body">'+arch.map(archTile).join("")+'</div></details>':"");
+    var ad=$("pools").querySelector("details.archive");if(ad)ad.addEventListener("toggle",function(){S.archOpen=ad.open});
     $("pools").querySelectorAll("[data-p]").forEach(function(b){b.onclick=function(){openProduct(b.getAttribute("data-p"))}});
     $("pools").querySelectorAll("[data-give]").forEach(function(b){b.onclick=function(e){e.stopPropagation();if(!S.db)return;var id=b.getAttribute("data-id"),o=b.getAttribute("data-give");
       write(S.db.collection("products").doc(id).update({owner:o,updatedAt:new Date().toISOString()}),prod(id).name+" → pool "+(o==="Nico"?"Nicolas":o))}});
@@ -724,7 +737,7 @@ function LaboDB(){
       it.facts="Depuis le lancement : "+usd0(d.spend_tot)+" · "+pl(d.nco_tot,"vente")+" NC"+(d.spend_tot?" · ROAS NC "+num(d.roas_tot):"")+" (BE "+num(be)+")";it.w=d.spend_tot||0;return it}
     if(due.length){it.g="decider";it.phase="Changement à juger";it.act="Dire si « "+short(due[0].what,60)+" » a marché";it.facts=f3();it.judge=due[0].id;it.w=(d.s3||0)+1e6;return it}
     if(pend.length){var c=pend[0];it.g="attendre";it.phase="Re-test jusqu'au "+frDate(c.checkOn);it.act="On ne touche pas : « "+short(c.what,55)+" » (changé le "+frDate(c.at)+")";it.facts=f3();it.w=d.s3||0;return it}
-    if(!d.s3){it.g="decider";it.phase="Plus de pub";it.act=d.last_day?"Aucune dépense depuis le "+frDate(d.last_day)+" : relancer ou passer en Coupé ?":"Aucune dépense dans Triple Whale : vérifier que les pubs tournent";it.facts=d.spend_tot?"Total : "+usd0(d.spend_tot)+" · "+pl(d.nco_tot,"vente")+" NC · ROAS NC "+num(d.roas_tot):"";it.w=1;return it}
+    if(!d.s3){it.g="decider";it.phase="Plus de pub";it.act=d.last_day?"Aucune dépense depuis le "+frDate(d.last_day)+" : relancer ou couper (statut Coupé = archivé) ?":"Aucune dépense dans Triple Whale : vérifier que les pubs tournent";it.facts=d.spend_tot?"Total : "+usd0(d.spend_tot)+" · "+pl(d.nco_tot,"vente")+" NC · ROAS NC "+num(d.roas_tot):"";it.w=1;return it}
     var r=d.roas3;it.w=d.s3;it.facts=f3();var verdictDay=full===3&&p.status!=="Scale";
     if(r10&&r>=r10){it.g=verdictDay?"decider":"roule";it.phase=verdictDay?"Verdict J3 : au-dessus du 10 %":"Au-dessus du 10 %";it.act="Remettre du budget et des pubs sur l'angle qui marche";return it}
     if(be&&r>=be){it.g=verdictDay?"decider":"faire";it.phase=verdictDay?"Verdict J3 : entre BE et 10 %":"Entre BE et 10 %";it.act="Nouvelles pubs sur l'angle qui marche"+(ZONE_ACT[d.zone]?", et "+ZONE_ACT[d.zone]:"");return it}
@@ -960,6 +973,9 @@ function LaboDB(){
   function nn(v){return v===""||v==null||isNaN(Number(v))?null:Number(v)}
   $("product-form").addEventListener("submit",function(e){e.preventDefault();if(!S.db)return;
     var f={owner:$("p-owner").value,status:$("p-status").value,offer:$("p-offer").value.trim(),be:nn($("p-be").value),r10:nn($("p-r10").value),r20:nn($("p-r20").value),launched:$("p-launched").value,url:$("p-url").value.trim().replace(/^.*\/products\//,"").replace(/[?#].*$/,""),fb:mergeFb($("p-fb").value),note:$("p-note").value.trim(),updatedAt:new Date().toISOString()};
+    var was=S.current?prod(S.current):null;
+    if(f.status==="Coupé"&&!(was&&was.status==="Coupé"))f.archived={at:todayStr(),by:"main",why:"passé en Coupé à la main"};
+    if(f.status!=="Coupé"&&was&&was.status==="Coupé")f.archived=null;
     closeSheets();
     if(S.current)write(S.db.collection("products").doc(S.current).update(f),"Produit mis à jour");
     else{var n=$("p-name").value.trim();if(!n)return;f.name=n;f.roas=null;f.spend=null;f.roasWindow="";write(S.db.collection("products").doc(slugify(n)).set(f),"Produit ajouté")}});
