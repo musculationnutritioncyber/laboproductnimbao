@@ -906,6 +906,13 @@ function LaboDB(){
   var SOURCING="https://docs.google.com/spreadsheets/d/13pgbIiOYqcSmjh9-VIMD3aWM4kboCfMye3KvWpHb2To/edit#gid=378850644";
   function sourcingLink(p){var k=p.be_check||{},n=k.sheet_line;if(!n){var m=/Product Sourcing ligne (\d+)/.exec(k.src||"");n=m&&m[1]}
     return n?'<a href="'+SOURCING+'&range=A'+n+':AA'+n+'" target="_blank" rel="noopener">📋 Product Sourcing · ligne '+esc(n)+'</a>':""}
+  /* Triple Whale (25/11, Nico) : bouton qui ouvre les campagnes Meta dans Triple Whale sur les 3 jours des tuiles. Triple Whale n'a pas de lien direct vers une campagne : le nom du produit est copié, il reste à le coller dans « Search campaigns ». */
+  function twLink(p){if(!(p.fb||[]).length)return "";var n=String(p.fb[0].name||""),m=/^[^-]+ - (.+?) - \[/.exec(n),q=(m?m[1]:p.name||"").trim();
+    var w=/(\d{4})-(\d{2})-(\d{2})/.exec(p.roasWindow||""),e=w?new Date(Date.UTC(+w[1],+w[2]-1,+w[3])):new Date(Date.now()-864e5),b=new Date(e.getTime()-2*864e5);
+    function f(d){return d.toISOString().slice(0,10)}
+    return '<a href="https://app.triplewhale.com/dashboards/attribution-beta/ads/facebook-ads?shop-id=pnx56a-4u.myshopify.com&amp;start='+f(b)+'&amp;end='+f(e)+'&amp;tab=campaign" target="_blank" rel="noopener" data-tw="'+esc(q)+'" title="Ouvre Triple Whale et copie « '+esc(q)+' » : colle-le dans Search campaigns">🐳 Triple Whale</a>'}
+  document.addEventListener("click",function(ev){var a=ev.target&&ev.target.closest&&ev.target.closest("a[data-tw]");if(!a)return;var q=a.getAttribute("data-tw");
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(q).then(function(){toast("« "+q+" » copié : colle-le dans Search campaigns")},function(){})});
   function kaloLinks(p){var k=p.be_check||{},L=[];if(k.kalodata)L.push(k.kalodata);(k.kalodata_plus||[]).forEach(function(u){L.push(u)});
     return L.map(function(u,i){return '<a href="'+esc(u)+'" target="_blank" rel="noopener">📈 Kalodata'+(L.length>1?" "+(i+1):"")+'</a>'}).join("")}
   function beCheckBox(p){var k=p.be_check;if(!k)return "";
@@ -947,7 +954,7 @@ function LaboDB(){
       $("p-hero").innerHTML='<div class="hero '+esc(p.owner)+'">'+photo(p,"lg")+'<div style="min-width:0"><h4>'+esc(p.name)+'</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0"><span class="pill st-'+esc(p.status)+'">'+esc(p.status)+'</span>'+(p.launched?'<span class="pill res-none">lancé le '+esc(frDate(p.launched))+'</span>':"")+'</div><div class="t-offer" style="white-space:normal">'+esc(p.offer||"Offre à compléter")+'</div></div></div><div id="p-lst"></div>'+
         '<div class="kpi4" style="margin-top:10px"><div class="k"><span>ROAS global TW</span><b class="c-'+rcv(p.roas_g,p)+'">'+num(p.roas_g)+'</b></div><div class="k"><span>ROAS New Customer</span><b class="c-'+rcv(p.roas,p)+'">'+num(p.roas)+'</b></div><div class="k"><span>ROAS Meta</span><b class="c-'+rcv(p.roas_meta,p)+'">'+num(p.roas_meta)+'</b></div>'+atcK(p)+'</div>'+
         '<div class="kpi4" style="margin-top:8px"><div class="k"><span>Seuil BE</span><b>'+num(p.be)+'</b></div><div class="k"><span>ROAS 10 %</span><b>'+num(p.r10)+'</b></div><div class="k"><span>ROAS 20 %</span><b>'+num(p.r20)+'</b></div></div>'+
-        '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+kaloLinks(p)+sourcingLink(p)+'</div>'+beCheckBox(p)+
+        '<div class="plinks">'+(p.url?'<a href="https://www.nimbao.com/products/'+esc(p.url)+'" target="_blank" rel="noopener">🛍️ Fiche produit</a>':"")+((p.fb||[]).map(function(f){return '<a href="'+esc(fbLink(f.id))+'" target="_blank" rel="noopener">📣 '+esc(f.name||"Campagne Facebook")+'</a>'}).join(""))+twLink(p)+kaloLinks(p)+sourcingLink(p)+'</div>'+beCheckBox(p)+
         (p.roasWindow?'<p class="sub" style="margin-top:6px">'+esc(p.roasWindow)+(p.spend!=null&&p.spend!==""?' · dépense '+num(p.spend,0)+' $':"")+'</p>':"")+
         (p.note?'<p style="margin:8px 0 0;font-size:14px;background:var(--soft);border-radius:12px;padding:10px 12px">'+esc(p.note)+'</p>':"");
       var ch=S.changes.filter(function(x){return x.product===p.id}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))});
