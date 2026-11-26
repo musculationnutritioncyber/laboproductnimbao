@@ -509,7 +509,8 @@ details.edit summary{cursor:pointer;font-weight:700;font-size:14px}
           <li>Verdict : vert = ROAS NC au-dessus du ROAS 10 %, orange = entre le BE et le 10 %, rouge = sous le BE. « Petit volume » : moins de 5 achats NC en 3 jours.</li>
           <li>ATC rate « anormal » : plus du double du compte, l'événement add to cart est sans doute mal compté.</li>
           <li>Angles qui marchent : pubs à 80 $ de spend ou plus sur 7 jours, ROAS NC au moins égal au BE, 3 achats NC ou plus. L'angle est lu dans le nom de l'ad set.</li>
-          <li>Listicle : dès qu'un produit dépense 200 $ par jour (moyenne des 3 derniers jours), on lui crée un listicle. La tuile affiche « Listicle à faire » ; dans la fiche, le bouton « Fait » le coche.</li>
+          <li>Listicle : dès qu'un produit dépense 200 $ par jour (moyenne des 3 derniers jours), on lui crée un listicle. La tuile affiche « Listicle à faire » ; dans la fiche, le bouton « Fait » le coche. Chaque jour à 12 h 01, Claude cherche aussi lui-même les listicles en ligne (pages du site au nom du produit) et met les liens.</li>
+          <li>Upsell : chaque jour à 12 h 01, Claude regarde dans AfterSell (Post-purchase funnels) s'il existe un funnel au nom du produit, et l'affiche dans la fiche (créé, désactivé ou pas encore créé).</li>
         </ul>
       </div>
     </section>
@@ -931,14 +932,26 @@ function LaboDB(){
   /* Listicle (25/11, Nico) : dès qu'un produit dépense LST_SEUIL $ par jour (moyenne des 3 derniers jours), il lui faut un listicle. Champ products.listicle = {done, who, at, url}. */
   var LST_SEUIL=200;
   function lstDay(p){var J=latestJour(),d=(J&&J.produits&&J.produits[p.id])||{};var s=d.s3!=null?d.s3:(p.spend!=null&&p.spend!==""?Number(p.spend):null);return s==null||isNaN(s)?null:s/3}
-  function lstState(p){if(p.listicle&&p.listicle.done)return "fait";var a=lstDay(p);return a!=null&&a>=LST_SEUIL&&p.status!=="Coupé"?"afaire":"non"}
+  function lstPub(p){return (p.lst_pages||[]).filter(function(g){return g.pub})}
+  function lstState(p){if((p.listicle&&p.listicle.done)||lstPub(p).length)return "fait";var a=lstDay(p);return a!=null&&a>=LST_SEUIL&&p.status!=="Coupé"?"afaire":"non"}
+  /* Upsell AfterSell (26/11, Nico) : la routine 12 h 01 lit la liste « Post-purchase funnels » d'AfterSell et cherche un funnel au nom du produit → products.upsell = {ok, funnels:[{name,active}], at} */
+  function upsellBox(p){var u=p.upsell;if(!u)return '<div class="lst non"><div class="lst-t"><b>Upsell AfterSell : pas encore vérifié</b><small>la routine de 12 h 01 le regarde chaque jour</small></div></div>';
+    var f=u.funnels||[],on=f.filter(function(x){return x.active}),chk=u.at?" · vérifié le "+esc(frDate(String(u.at).slice(0,10))):"";
+    if(u.ok)return '<div class="lst fait"><div class="lst-t"><b>✓ Upsell AfterSell créé</b><small>'+on.map(function(x){return esc(x.name)}).join(" · ")+" (actif)"+chk+'</small></div></div>';
+    if(f.length)return '<div class="lst afaire"><div class="lst-t"><b>Upsell AfterSell créé mais désactivé</b><small>'+f.map(function(x){return esc(x.name)}).join(" · ")+chk+'</small></div></div>';
+    return '<div class="lst '+(p.status==="Coupé"?"non":"afaire")+'"><div class="lst-t"><b>🛒 Upsell AfterSell pas encore créé</b><small>aucun funnel au nom du produit'+chk+'</small></div></div>'}
   function renderLst(p){
     var el=$("p-lst");if(!el||!p)return;
     var st=lstState(p),l=p.listicle||{},a=lstDay(p),dep=a==null?"dépense inconnue":usd0(a)+" par jour (moyenne 3 j)",h;
-    if(st==="fait")h='<div class="lst-t"><b>✓ Listicle fait</b><small>'+(l.who?esc(l.who)+" · ":"")+(l.at?esc(frDate(String(l.at).slice(0,10))):"")+(l.url?' · <a href="'+esc(l.url)+'" target="_blank" rel="noopener">ouvrir le listicle</a>':"")+'</small></div>'+(S.canWrite?'<button type="button" class="btn" data-lst="0">Pas fait</button>':"");
+    /* 26/11 (Nico) : la routine 12 h 01 cherche elle-même les listicles (pages Shopify dont l'adresse contient le nom du produit) → products.lst_pages */
+    var pub=lstPub(p),drf=(p.lst_pages||[]).filter(function(g){return !g.pub}),okUrl=l.url&&/^https?:\/\/[^\s\/]+\.[a-z]{2,}/i.test(l.url);
+    function lk(g){return '<a href="https://www.nimbao.com/pages/'+esc(g.handle)+'" target="_blank" rel="noopener">'+esc(g.handle.replace(/^landing[-_]/,""))+'</a>'}
+    if(st==="fait"&&pub.length)h='<div class="lst-t"><b>✓ Listicle en ligne'+(pub.length>1?" ("+pub.length+")":"")+'</b><small>trouvé par Claude : '+pub.slice(0,3).map(lk).join(" · ")+(pub.length>3?' · +'+(pub.length-3)+' autres':"")+(drf.length?' · '+drf.length+' brouillon'+(drf.length>1?"s":""):"")+'</small></div>';
+    else if(st==="fait")h='<div class="lst-t"><b>✓ Listicle fait</b><small>'+(l.who?esc(l.who)+" · ":"")+(l.at?esc(frDate(String(l.at).slice(0,10))):"")+(okUrl?' · <a href="'+esc(l.url)+'" target="_blank" rel="noopener">ouvrir le listicle</a>':' · page pas encore trouvée sur le site par Claude')+'</small></div>'+(S.canWrite?'<button type="button" class="btn" data-lst="0">Pas fait</button>':"");
     else if(st==="afaire")h='<div class="lst-t"><b>📰 Listicle à créer</b><small>'+esc(dep)+", seuil "+LST_SEUIL+' $ par jour</small></div>'+(S.canWrite?'<button type="button" class="btn ok" data-lst="1">Fait</button>':"");
     else h='<div class="lst-t"><b>Listicle : pas encore</b><small>'+esc(dep)+", à créer à partir de "+LST_SEUIL+' $ par jour</small></div>'+(S.canWrite?'<button type="button" class="btn" data-lst="1">Déjà fait</button>':"");
-    el.innerHTML='<div class="lst '+st+'">'+h+'</div>';
+    if(st!=="fait"&&drf.length)h=h.replace('</small></div>',' · brouillon trouvé : '+drf.map(lk).join(" · ")+'</small></div>');
+    el.innerHTML='<div class="lst '+st+'">'+h+'</div>'+upsellBox(p);
     var b=el.querySelector("[data-lst]");if(!b)return;
     b.onclick=function(){var q=prod(p.id),v;
       if(b.getAttribute("data-lst")==="1"){var u=prompt("Lien du listicle (facultatif)","");if(u===null)return;u=u.trim();if(u&&!/^https?:\/\//i.test(u))u="https://"+u;
